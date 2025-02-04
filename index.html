@@ -82,8 +82,6 @@
       height: auto;
       border: 2px solid #4CAF50;
       border-radius: 5px;
-      /* Initially no transform */
-      transform: none;
     }
 
     /* The canvases overlay the video element */
@@ -179,52 +177,28 @@
   </div>
 
   <script>
-
-function adjustUIForDevice() {
-    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-      document.body.classList.add('mobile');
-      $("#webcam-caption").text("Tap to Start Camera");
-      console.log("Mobile UI loaded.");
-    } else {
-      console.log("Desktop UI loaded.");
+    // Detect if the user is on a mobile device.
+    function isMobileDevice() {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     }
-  }
-  adjustUIForDevice();
 
-
-    // Initialize Webcam and Canvas elements first.
-    const webcamElement = document.getElementById('webcam');
-  const boundingBoxCanvas = document.getElementById('bounding-box');
-  const landmarksCanvas = document.getElementById('facial-landmarks');
-
-
-
-
-   
-
-    // **Orientation Adjustment Code**
-    // This function checks the window dimensions to determine if the device is in portrait mode.
-    // If so, it applies a CSS transform to rotate the video element by 90 degrees.
-    function adjustOrientation() {
-      if (window.innerWidth < window.innerHeight) {
-        // In portrait mode, rotate the video element (and optionally the overlay canvases)
-        webcamElement.style.transform = "rotate(90deg)";
-        // You may need to adjust the position of the canvases if their coordinate system shifts.
-        // For example, you can also set a similar transform on your canvas elements:
-        boundingBoxCanvas.style.transform = "rotate(90deg)";
-        landmarksCanvas.style.transform = "rotate(90deg)";
+    // Apply mobile-specific classes or modifications
+    function adjustUIForDevice() {
+      if (isMobileDevice()) {
+        document.body.classList.add('mobile');
+        $("#webcam-caption").text("Tap to Start Camera");
+        console.log("Mobile UI loaded.");
       } else {
-        // In landscape mode, remove any rotation
-        webcamElement.style.transform = "none";
-        boundingBoxCanvas.style.transform = "none";
-        landmarksCanvas.style.transform = "none";
+        console.log("Desktop UI loaded.");
       }
     }
-    // Call adjustOrientation on page load and whenever the window is resized.
-    window.addEventListener("resize", adjustOrientation);
-    adjustOrientation();
+    // Call adjustUIForDevice on page load
+    adjustUIForDevice();
 
-
+    // Initialize Webcam and Canvas elements
+    const webcamElement = document.getElementById('webcam');
+    const boundingBoxCanvas = document.getElementById('bounding-box');
+    const landmarksCanvas = document.getElementById('facial-landmarks');
 
     // Update canvas sizes when video metadata is loaded
     webcamElement.addEventListener("loadedmetadata", () => {
