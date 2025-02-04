@@ -178,22 +178,22 @@
 
   <script>
     // Detect if the user is on a mobile device.
-    function isMobileDevice() {
-      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    }
+    // function isMobileDevice() {
+    //   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    // }
 
-    // Apply mobile-specific classes or modifications
-    function adjustUIForDevice() {
-      if (isMobileDevice()) {
-        document.body.classList.add('mobile');
-        $("#webcam-caption").text("Tap to Start Camera");
-        console.log("Mobile UI loaded.");
-      } else {
-        console.log("Desktop UI loaded.");
-      }
-    }
-    // Call adjustUIForDevice on page load
-    adjustUIForDevice();
+    // // Apply mobile-specific classes or modifications
+    // function adjustUIForDevice() {
+    //   if (isMobileDevice()) {
+    //     document.body.classList.add('mobile');
+    //     $("#webcam-caption").text("Tap to Start Camera");
+    //     console.log("Mobile UI loaded.");
+    //   } else {
+    //     console.log("Desktop UI loaded.");
+    //   }
+    // }
+    // // Call adjustUIForDevice on page load
+    // adjustUIForDevice();
 
     // Initialize Webcam and Canvas elements
     const webcamElement = document.getElementById('webcam');
