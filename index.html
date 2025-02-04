@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <!-- Responsive viewport meta tag -->
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>X Wallet Liveliness</title>
+
+
+
 
   <script>
     (function() {
@@ -16,7 +17,10 @@
       // Check if the id exists and if it matches the UUID format
       if (!id || !uuidRegex.test(id)) {
         alert("Access denied!");
+        // Option 1: Redirect to a safe page (e.g., an error page or homepage)
         window.location.href = "about:blank";
+        // Option 2: Stop further execution by throwing an error
+        // throw new Error("Invalid or missing ID");
       }
     })();
   </script>
@@ -39,23 +43,14 @@
   <script src="https://unpkg.com/webcam-easy/dist/webcam-easy.min.js"></script>
 
   <style>
-    /* Base Styles */
     body {
       font-family: Arial, sans-serif;
       text-align: center;
       background-color: #f0f0f0;
-      margin: 0;
-      padding: 0;
     }
-
-    h1 {
-      margin-top: 20px;
-    }
-
     #webcam-control {
       margin: 20px;
     }
-
     .btn {
       cursor: pointer;
       background-color: #4CAF50;
@@ -66,82 +61,31 @@
       border-radius: 5px;
       margin: 10px;
     }
-
-    /* Container for video and canvases */
     #video-container {
       position: relative;
-      margin: 0 auto;
-      max-width: 640px;
-      width: 100%;
-      display: none;
+      display: inline-block;
     }
-
-    /* Responsive video element */
     #webcam {
-      width: 100%;
-      height: auto;
       border: 2px solid #4CAF50;
       border-radius: 5px;
     }
-
-    /* The canvases overlay the video element */
+    /* Canvas layers */
     .overlay-canvas {
       position: absolute;
       top: 0;
       left: 0;
-      width: 100%;
-      height: auto;
-      pointer-events: none;
     }
-
     #info-text {
       display: block;
       margin-top: 10px;
       font-weight: bold;
     }
-
     #download-photo {
       display: none;
       margin-top: 10px;
       font-size: 16px;
       color: #4CAF50;
       text-decoration: none;
-    }
-
-    /* Mobile-specific styles using a class and media queries */
-    .mobile .btn {
-      padding: 20px;
-      font-size: 18px;
-    }
-
-    /* Media queries for small devices */
-    @media (max-width: 768px) {
-      body {
-        font-size: 16px;
-      }
-      #webcam-control {
-        margin: 15px;
-      }
-      .btn {
-        padding: 12px;
-        font-size: 16px;
-      }
-      #info-text {
-        font-size: 14px;
-      }
-    }
-
-    @media (max-width: 480px) {
-      body {
-        font-size: 14px;
-      }
-      .btn {
-        padding: 10px;
-        font-size: 14px;
-      }
-      #info-text {
-        font-size: 12px;
-      }
     }
   </style>
 </head>
@@ -154,12 +98,12 @@
     <span id="webcam-caption">Click to Start Camera</span>
   </div>
 
-  <div id="video-container" class="container">
-    <video id="webcam" autoplay playsinline></video>
+  <div id="video-container" class="container" style="display: none;">
+    <video id="webcam" autoplay playsinline width="640" height="480"></video>
     <!-- Canvas for Bounding Boxes -->
-    <canvas id="bounding-box" class="overlay-canvas"></canvas>
+    <canvas id="bounding-box" class="overlay-canvas" width="640" height="480"></canvas>
     <!-- Canvas for Facial Landmarks & Indicators -->
-    <canvas id="facial-landmarks" class="overlay-canvas"></canvas>
+    <canvas id="facial-landmarks" class="overlay-canvas" width="640" height="480"></canvas>
     <div>
       <button id="start-capture" class="btn">
         <i class="fa fa-camera fa-fw"></i> Start Capture
@@ -167,7 +111,7 @@
       <button id="capture-running" class="btn" style="display: none;">
         <i class="fa fa-refresh fa-spin fa-fw"></i> Capturing...
       </button>
-      <!-- Instruction Text -->
+      <!-- This element will display instructions and, after blink, the countdown timer -->
       <span id="info-text" style="display: none;">Please blink to capture.</span>
     </div>
     <!-- Optional: Download Photo Link -->
@@ -177,69 +121,49 @@
   </div>
 
   <script>
-    // Detect if the user is on a mobile device.
-    // function isMobileDevice() {
-    //   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    // }
-
-    // // Apply mobile-specific classes or modifications
-    // function adjustUIForDevice() {
-    //   if (isMobileDevice()) {
-    //     document.body.classList.add('mobile');
-    //     $("#webcam-caption").text("Tap to Start Camera");
-    //     console.log("Mobile UI loaded.");
-    //   } else {
-    //     console.log("Desktop UI loaded.");
-    //   }
-    // }
-    // // Call adjustUIForDevice on page load
-    // adjustUIForDevice();
-
-    // Initialize Webcam and Canvas elements
+    // Initialize Webcam
     const webcamElement = document.getElementById('webcam');
     const boundingBoxCanvas = document.getElementById('bounding-box');
-    const landmarksCanvas = document.getElementById('facial-landmarks');
-
-    // Update canvas sizes when video metadata is loaded
-    webcamElement.addEventListener("loadedmetadata", () => {
-      // Match canvas sizes to the video element size
-      boundingBoxCanvas.width = webcamElement.videoWidth;
-      boundingBoxCanvas.height = webcamElement.videoHeight;
-      landmarksCanvas.width = webcamElement.videoWidth;
-      landmarksCanvas.height = webcamElement.videoHeight;
-    });
-
     const boundingBoxCtx = boundingBoxCanvas.getContext('2d');
+    const landmarksCanvas = document.getElementById('facial-landmarks');
     const landmarksCtx = landmarksCanvas.getContext('2d');
     const webcam = new Webcam(webcamElement, 'user', landmarksCanvas);
 
+
     const emojiMapping = {
-      blink: '👀',
-      smile: '😊',
-      left: '⬅️',
-      right: '➡️',
-      up: '⬆️',
-      down: '⬇️',
-      'up-left': '↖️',
-      'up-right': '↗️',
-      'down-left': '↙️',
-      'down-right': '↘️'
-    };
+  blink: '👀',         // Emoji for blinking
+  smile: '😊',         // Emoji for smiling
+  left: '⬅️',
+  right: '➡️',
+  up: '⬆️',
+  down: '⬇️',
+  'up-left': '↖️',
+  'up-right': '↗️',
+  'down-left': '↙️',
+  'down-right': '↘️'
+};
 
     let model = null;
     let cameraFrame = null;
     let running = false;
     let timeout = null;
     
+    // Total time allowed for the liveliness test (in seconds)
     const TOTAL_TIME = 30;
     let remainingTime = TOTAL_TIME;
     let countdownInterval = null;
     
-    // Application states
+    // Application states:
+    // "waitingForBlink" → "waitingForHeadMovements" → "waitingForSmile" → "completed"
     let currentStep = 'waitingForBlink';
+
+    // All possible head movement directions
     const headMovements = ['left', 'right', 'up', 'down', 'up-left', 'up-right', 'down-left', 'down-right'];
+    // The sequence of exactly 5 head movements
     let headMovementSequence = [];
     let currentHeadMovementIndex = 0;
+
+    // Flag to check if initial centering has been completed
     let initialCentered = false;
 
     // DOM Elements
@@ -291,11 +215,14 @@
         if (cameraFrame != null) {
           cancelAnimationFrame(cameraFrame);
         }
+        // Clear the canvases
         boundingBoxCtx.clearRect(0, 0, boundingBoxCanvas.width, boundingBoxCanvas.height);
         landmarksCtx.clearRect(0, 0, landmarksCanvas.width, landmarksCanvas.height);
       }
+      // Clear any active countdown timer
       clearInterval(countdownInterval);
       remainingTime = TOTAL_TIME;
+      // Reset initial centering flag for next capture
       initialCentered = false;
     }
 
@@ -306,12 +233,16 @@
       infoText.text('Please blink to capture.');
       infoText.show();
       currentStep = 'waitingForBlink';
-      initialCentered = false;
+      initialCentered = false; // Reset centering flag
+      
+      // Reset head movement sequence and timer
       headMovementSequence = [];
       currentHeadMovementIndex = 0;
+      // Hide the download link if previously shown
       downloadPhotoLink.hide();
 
       try {
+        // Load the MediaPipe Facemesh model
         model = await faceLandmarksDetection.load(
           faceLandmarksDetection.SupportedPackages.mediapipeFacemesh,
           { maxFaces: 1 }
@@ -319,6 +250,7 @@
         running = true;
         cameraFrame = requestAnimationFrame(detectKeyPoints);
 
+        // Set a fallback timeout (in case no blink is detected)
         timeout = setTimeout(() => {
           alert("Capture timed out. Please try again.");
           stopCapture();
@@ -332,24 +264,41 @@
       }
     }
 
-    function getCurrentInstruction() {
-      switch (currentStep) {
-        case 'waitingForBlink':
-          return `Please blink ${emojiMapping.blink}`;
-        case 'waitingForHeadMovements':
-          const movement = headMovementSequence[currentHeadMovementIndex];
-          return movement
-            ? `Please move your head ${movement} ${emojiMapping[movement]}`
-            : 'Please move your head.';
-        case 'waitingForSmile':
-          return `Please smile ${emojiMapping.smile}`;
-        default:
-          return "";
-      }
-    }
+    // Helper function to get current instruction based on the test step
+    // function getCurrentInstruction() {
+    //   switch (currentStep) {
+    //     case 'waitingForBlink':
+    //       return "Please blink.";
+    //     case 'waitingForHeadMovements':
+    //       return `Please move your head ${headMovementSequence[currentHeadMovementIndex]}.`;
+    //     case 'waitingForSmile':
+    //       return "Please smile.";
+    //     default:
+    //       return "";
+    //   }
+    // }
 
-    // Check if the face is centered
+    function getCurrentInstruction() {
+  switch (currentStep) {
+    case 'waitingForBlink':
+      return `Please blink ${emojiMapping.blink}`;
+    case 'waitingForHeadMovements':
+      const movement = headMovementSequence[currentHeadMovementIndex];
+      // Check if a valid movement exists and append its emoji
+      return movement
+        ? `Please move your head ${movement} ${emojiMapping[movement]}`
+        : 'Please move your head.';
+    case 'waitingForSmile':
+      return `Please smile ${emojiMapping.smile}`;
+    default:
+      return "";
+  }
+}
+
+    // New helper: Check if the face is centered (using the "center" case)
     function isFaceCentered(keypoints) {
+      // We use the 'center' case from detectHeadMovement.
+      // If the nose is within the defined threshold of the center, return true.
       return detectHeadMovement(keypoints, 'center');
     }
 
@@ -376,6 +325,7 @@
         predictIrises: false
       });
 
+      // Clear previous drawings
       boundingBoxCtx.clearRect(0, 0, boundingBoxCanvas.width, boundingBoxCanvas.height);
       landmarksCtx.clearRect(0, 0, landmarksCanvas.width, landmarksCanvas.height);
 
@@ -383,6 +333,7 @@
         const prediction = predictions[0];
         const keypoints = prediction.scaledMesh;
 
+        // Draw bounding box
         const start = prediction.boundingBox.topLeft;
         const end = prediction.boundingBox.bottomRight;
         const size = [end[0] - start[0], end[1] - start[1]];
@@ -390,33 +341,40 @@
         boundingBoxCtx.lineWidth = 2;
         boundingBoxCtx.strokeRect(start[0], start[1], size[0], size[1]);
 
+        // Only check if the face is centered if we haven't already completed initial centering.
         if (!initialCentered) {
           if (!isFaceCentered(keypoints)) {
             infoText.text("Please put your face in the center.");
             return requestAnimationFrame(detectKeyPoints);
           } else {
+            // Once the face is centered, set the flag to true.
             initialCentered = true;
             console.log("Face is centered.");
           }
         }
 
+        // Draw facial landmarks
         drawFacialLandmarks(keypoints, currentStep);
 
+        // If in the head movement step, display the arrow indicator
         if (currentStep === 'waitingForHeadMovements') {
           const currentDirection = headMovementSequence[currentHeadMovementIndex];
           drawHeadIndicator(currentDirection);
         }
 
+        // Process current state
         switch (currentStep) {
           case 'waitingForBlink':
             if (detectBlink(keypoints)) {
               console.log('Blink detected!');
+              // Generate a fixed sequence of 5 random head movements
               for (let i = 0; i < 5; i++) {
                 headMovementSequence.push(headMovements[Math.floor(Math.random() * headMovements.length)]);
               }
               console.log("Head Movement Sequence:", headMovementSequence);
               currentStep = 'waitingForHeadMovements';
 
+              // Start the 30-second countdown timer now that blink is detected
               remainingTime = TOTAL_TIME;
               countdownInterval = setInterval(() => {
                 remainingTime--;
@@ -462,23 +420,70 @@
               webcamElement.style.display = "none";
               console.log("Webcam closed after snapshot capture.");
 
-              if (window.parent) {
+            //   if (window.opener) {
+            //     const urlParams = new URLSearchParams(window.location.search);
+            //     const id = urlParams.get('id');
+            //     if (!id) {
+            //       alert("Access denied: no ID provided.");
+            //     } else {
+            //       window.opener.postMessage({ snapshot: picture, id: id }, "http://localhost:3000/kyc");
+            //     }
+            //     window.close();
+            //   }
+
+            // if (window.opener) {
+            //         const urlParams = new URLSearchParams(window.location.search);
+            //         const id = urlParams.get('id');
+
+            //         // Regular expression for a UUID
+            //         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+            //         // Check if the id exists and if it matches the UUID format
+            //         if (!id || !uuidRegex.test(id)) {
+            //             alert("Access denied!");
+            //         } else {
+            //             window.opener.postMessage({ snapshot: picture, id: id }, "http://localhost:3000/kyc");
+            //         }
+                    
+            //         window.close();
+            //         }
+
+            // }
+
+            if (window.parent) {
                 const urlParams = new URLSearchParams(window.location.search);
                 const id = urlParams.get('id');
+
+                // Regular expression for a UUID
                 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+                // Check if the id exists and if it matches the UUID format
                 if (!id || !uuidRegex.test(id)) {
-                  alert("Access denied!");
+                    alert("Access denied!");
                 } else {
-                  const payload = { snapshot: picture, id: id };
-                  if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
-                    window.ReactNativeWebView.postMessage(JSON.stringify(payload));
-                  } else if (window.parent && typeof window.parent.postMessage === 'function') {
-                    window.parent.postMessage(payload, "https://xwallet.tradetcx.com/kyc");
-                  }
+                    // // Make sure the target origin here matches the parent page’s origin.
+                    // window.parent.postMessage({ snapshot: picture, id: id }, "http://localhost:3000/kyc");
+
+
+
+                    const payload = { snapshot: picture, id: id };
+
+                        // If inside a React Native WebView, send the message using ReactNativeWebView.postMessage
+                        if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
+                        window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+                        } else if (window.parent && typeof window.parent.postMessage === 'function') {
+                        // Fallback to the original method if running in a browser container
+
+                        https://xwallet.tradetcx.com/kyc
+                        window.parent.postMessage(payload, "https://xwallet.tradetcx.com/kyc");
+
+                        // window.parent.postMessage(payload, "http://localhost:3000/kyc");
+                        }
                 }
-              }
+                // Instead of closing the window, you might want to notify the parent to remove/hide the iframe.
+                }
             }
+
             break;
           default:
             break;
@@ -486,10 +491,11 @@
       } else {
         console.log("No face detected.");
       }
+
       cameraFrame = requestAnimationFrame(detectKeyPoints);
     }
 
-    // Draw Head Movement Indicator
+    // Draw Head Movement Indicator Function
     function drawHeadIndicator(direction) {
       landmarksCtx.save();
       landmarksCtx.strokeStyle = "yellow";
@@ -566,29 +572,36 @@
     }
 
     // Blink Detection Function
+   // Global variable to track consecutive blink frames
     let blinkFrameCount = 0;
+
+    // Updated detectBlink function
     function detectBlink(keypoints) {
-      const leftEyeIndices = { top: 386, bottom: 374, left: 263, right: 362 };
-      const rightEyeIndices = { top: 159, bottom: 145, left: 33, right: 133 };
-      const leftEAR = calculateEAR(keypoints, leftEyeIndices);
-      const rightEAR = calculateEAR(keypoints, rightEyeIndices);
-      console.log(`Left EAR: ${leftEAR.toFixed(3)}\tRight EAR: ${rightEAR.toFixed(3)}`);
-      
-      const EAR_THRESHOLD = 0.5;
-      const REQUIRED_CONSECUTIVE_FRAMES = 3;
-      
-      if (leftEAR < EAR_THRESHOLD && rightEAR < EAR_THRESHOLD) {
+    const leftEyeIndices = { top: 386, bottom: 374, left: 263, right: 362 };
+    const rightEyeIndices = { top: 159, bottom: 145, left: 33, right: 133 };
+    const leftEAR = calculateEAR(keypoints, leftEyeIndices);
+    const rightEAR = calculateEAR(keypoints, rightEyeIndices);
+    console.log(`Left EAR: ${leftEAR.toFixed(3)}\tRight EAR: ${rightEAR.toFixed(3)}`);
+    
+    // Adjusted threshold value; you may need to fine-tune this further.
+    const EAR_THRESHOLD = 0.5;
+    // Number of consecutive frames that must meet the blink condition
+    const REQUIRED_CONSECUTIVE_FRAMES = 3;
+    
+    if (leftEAR < EAR_THRESHOLD && rightEAR < EAR_THRESHOLD) {
         blinkFrameCount++;
-      } else {
+    } else {
+        // Reset counter if condition is not met
         blinkFrameCount = 0;
-      }
-      
-      if (blinkFrameCount >= REQUIRED_CONSECUTIVE_FRAMES) {
+    }
+    
+    // If blink condition is met for enough consecutive frames, reset counter and return true.
+    if (blinkFrameCount >= REQUIRED_CONSECUTIVE_FRAMES) {
         blinkFrameCount = 0;
         return true;
-      }
-      
-      return false;
+    }
+    
+    return false;
     }
 
     // Smile Detection Function
@@ -682,12 +695,15 @@
         }
         landmarksCtx.stroke();
       }
+      // Draw eyes for all steps.
       drawLines(eyes.left);
       drawLines(eyes.right);
+      // Draw face outline during head movement steps.
       if (step === 'waitingForHeadMovements') {
         const faceOutline = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109, 10];
         drawLines(faceOutline);
       }
+      // Draw mouth when waiting for smile.
       if (step === 'waitingForSmile') {
         drawLines(mouth.outer);
       }
