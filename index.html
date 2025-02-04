@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <!-- Responsive viewport meta tag -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>X Wallet Liveliness</title>
 
   <script>
@@ -37,15 +39,23 @@
   <script src="https://unpkg.com/webcam-easy/dist/webcam-easy.min.js"></script>
 
   <style>
+    /* Base Styles */
     body {
       font-family: Arial, sans-serif;
       text-align: center;
       background-color: #f0f0f0;
+      margin: 0;
+      padding: 0;
     }
-    /* Default styling for web */
+
+    h1 {
+      margin-top: 20px;
+    }
+
     #webcam-control {
       margin: 20px;
     }
+
     .btn {
       cursor: pointer;
       background-color: #4CAF50;
@@ -56,25 +66,40 @@
       border-radius: 5px;
       margin: 10px;
     }
+
+    /* Container for video and canvases */
     #video-container {
       position: relative;
-      display: inline-block;
+      margin: 0 auto;
+      max-width: 640px;
+      width: 100%;
+      display: none;
     }
+
+    /* Responsive video element */
     #webcam {
+      width: 100%;
+      height: auto;
       border: 2px solid #4CAF50;
       border-radius: 5px;
     }
-    /* Canvas layers */
+
+    /* The canvases overlay the video element */
     .overlay-canvas {
       position: absolute;
       top: 0;
       left: 0;
+      width: 100%;
+      height: auto;
+      pointer-events: none;
     }
+
     #info-text {
       display: block;
       margin-top: 10px;
       font-weight: bold;
     }
+
     #download-photo {
       display: none;
       margin-top: 10px;
@@ -82,18 +107,41 @@
       color: #4CAF50;
       text-decoration: none;
     }
-    /* Mobile-specific styles */
-    .mobile #webcam {
-      width: 100% !important;
-      height: auto !important;
-      border: none;
-    }
+
+    /* Mobile-specific styles using a class and media queries */
     .mobile .btn {
       padding: 20px;
       font-size: 18px;
     }
-    .mobile #video-container {
-      width: 100%;
+
+    /* Media queries for small devices */
+    @media (max-width: 768px) {
+      body {
+        font-size: 16px;
+      }
+      #webcam-control {
+        margin: 15px;
+      }
+      .btn {
+        padding: 12px;
+        font-size: 16px;
+      }
+      #info-text {
+        font-size: 14px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      body {
+        font-size: 14px;
+      }
+      .btn {
+        padding: 10px;
+        font-size: 14px;
+      }
+      #info-text {
+        font-size: 12px;
+      }
     }
   </style>
 </head>
@@ -106,12 +154,12 @@
     <span id="webcam-caption">Click to Start Camera</span>
   </div>
 
-  <div id="video-container" class="container" style="display: none;">
-    <video id="webcam" autoplay playsinline width="640" height="480"></video>
+  <div id="video-container" class="container">
+    <video id="webcam" autoplay playsinline></video>
     <!-- Canvas for Bounding Boxes -->
-    <canvas id="bounding-box" class="overlay-canvas" width="640" height="480"></canvas>
+    <canvas id="bounding-box" class="overlay-canvas"></canvas>
     <!-- Canvas for Facial Landmarks & Indicators -->
-    <canvas id="facial-landmarks" class="overlay-canvas" width="640" height="480"></canvas>
+    <canvas id="facial-landmarks" class="overlay-canvas"></canvas>
     <div>
       <button id="start-capture" class="btn">
         <i class="fa fa-camera fa-fw"></i> Start Capture
@@ -119,7 +167,7 @@
       <button id="capture-running" class="btn" style="display: none;">
         <i class="fa fa-refresh fa-spin fa-fw"></i> Capturing...
       </button>
-      <!-- This element will display instructions and, after blink, the countdown timer -->
+      <!-- Instruction Text -->
       <span id="info-text" style="display: none;">Please blink to capture.</span>
     </div>
     <!-- Optional: Download Photo Link -->
@@ -131,40 +179,43 @@
   <script>
     // Detect if the user is on a mobile device.
     function isMobileDevice() {
-      // Option 1: Using the userAgent
       return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      
-      // Option 2: Alternatively, you could use screen width:
-      // return window.innerWidth <= 768;
     }
 
     // Apply mobile-specific classes or modifications
     function adjustUIForDevice() {
       if (isMobileDevice()) {
         document.body.classList.add('mobile');
-        // Optionally, you can adjust or hide certain elements for mobile:
-        // For example, change text or hide elements that don't work well on mobile.
         $("#webcam-caption").text("Tap to Start Camera");
         console.log("Mobile UI loaded.");
       } else {
         console.log("Desktop UI loaded.");
       }
     }
-
     // Call adjustUIForDevice on page load
     adjustUIForDevice();
 
-    // Initialize Webcam
+    // Initialize Webcam and Canvas elements
     const webcamElement = document.getElementById('webcam');
     const boundingBoxCanvas = document.getElementById('bounding-box');
-    const boundingBoxCtx = boundingBoxCanvas.getContext('2d');
     const landmarksCanvas = document.getElementById('facial-landmarks');
+
+    // Update canvas sizes when video metadata is loaded
+    webcamElement.addEventListener("loadedmetadata", () => {
+      // Match canvas sizes to the video element size
+      boundingBoxCanvas.width = webcamElement.videoWidth;
+      boundingBoxCanvas.height = webcamElement.videoHeight;
+      landmarksCanvas.width = webcamElement.videoWidth;
+      landmarksCanvas.height = webcamElement.videoHeight;
+    });
+
+    const boundingBoxCtx = boundingBoxCanvas.getContext('2d');
     const landmarksCtx = landmarksCanvas.getContext('2d');
     const webcam = new Webcam(webcamElement, 'user', landmarksCanvas);
 
     const emojiMapping = {
-      blink: '👀',         // Emoji for blinking
-      smile: '😊',         // Emoji for smiling
+      blink: '👀',
+      smile: '😊',
       left: '⬅️',
       right: '➡️',
       up: '⬆️',
@@ -180,22 +231,15 @@
     let running = false;
     let timeout = null;
     
-    // Total time allowed for the liveliness test (in seconds)
     const TOTAL_TIME = 30;
     let remainingTime = TOTAL_TIME;
     let countdownInterval = null;
     
-    // Application states:
-    // "waitingForBlink" → "waitingForHeadMovements" → "waitingForSmile" → "completed"
+    // Application states
     let currentStep = 'waitingForBlink';
-
-    // All possible head movement directions
     const headMovements = ['left', 'right', 'up', 'down', 'up-left', 'up-right', 'down-left', 'down-right'];
-    // The sequence of exactly 5 head movements
     let headMovementSequence = [];
     let currentHeadMovementIndex = 0;
-
-    // Flag to check if initial centering has been completed
     let initialCentered = false;
 
     // DOM Elements
@@ -247,14 +291,11 @@
         if (cameraFrame != null) {
           cancelAnimationFrame(cameraFrame);
         }
-        // Clear the canvases
         boundingBoxCtx.clearRect(0, 0, boundingBoxCanvas.width, boundingBoxCanvas.height);
         landmarksCtx.clearRect(0, 0, landmarksCanvas.width, landmarksCanvas.height);
       }
-      // Clear any active countdown timer
       clearInterval(countdownInterval);
       remainingTime = TOTAL_TIME;
-      // Reset initial centering flag for next capture
       initialCentered = false;
     }
 
@@ -265,16 +306,12 @@
       infoText.text('Please blink to capture.');
       infoText.show();
       currentStep = 'waitingForBlink';
-      initialCentered = false; // Reset centering flag
-      
-      // Reset head movement sequence and timer
+      initialCentered = false;
       headMovementSequence = [];
       currentHeadMovementIndex = 0;
-      // Hide the download link if previously shown
       downloadPhotoLink.hide();
 
       try {
-        // Load the MediaPipe Facemesh model
         model = await faceLandmarksDetection.load(
           faceLandmarksDetection.SupportedPackages.mediapipeFacemesh,
           { maxFaces: 1 }
@@ -282,7 +319,6 @@
         running = true;
         cameraFrame = requestAnimationFrame(detectKeyPoints);
 
-        // Set a fallback timeout (in case no blink is detected)
         timeout = setTimeout(() => {
           alert("Capture timed out. Please try again.");
           stopCapture();
@@ -312,7 +348,7 @@
       }
     }
 
-    // New helper: Check if the face is centered
+    // Check if the face is centered
     function isFaceCentered(keypoints) {
       return detectHeadMovement(keypoints, 'center');
     }
@@ -340,7 +376,6 @@
         predictIrises: false
       });
 
-      // Clear previous drawings
       boundingBoxCtx.clearRect(0, 0, boundingBoxCanvas.width, boundingBoxCanvas.height);
       landmarksCtx.clearRect(0, 0, landmarksCanvas.width, landmarksCanvas.height);
 
@@ -348,7 +383,6 @@
         const prediction = predictions[0];
         const keypoints = prediction.scaledMesh;
 
-        // Draw bounding box
         const start = prediction.boundingBox.topLeft;
         const end = prediction.boundingBox.bottomRight;
         const size = [end[0] - start[0], end[1] - start[1]];
@@ -356,7 +390,6 @@
         boundingBoxCtx.lineWidth = 2;
         boundingBoxCtx.strokeRect(start[0], start[1], size[0], size[1]);
 
-        // Only check if the face is centered if we haven't already completed initial centering.
         if (!initialCentered) {
           if (!isFaceCentered(keypoints)) {
             infoText.text("Please put your face in the center.");
@@ -367,16 +400,13 @@
           }
         }
 
-        // Draw facial landmarks
         drawFacialLandmarks(keypoints, currentStep);
 
-        // If in the head movement step, display the arrow indicator
         if (currentStep === 'waitingForHeadMovements') {
           const currentDirection = headMovementSequence[currentHeadMovementIndex];
           drawHeadIndicator(currentDirection);
         }
 
-        // Process current state
         switch (currentStep) {
           case 'waitingForBlink':
             if (detectBlink(keypoints)) {
@@ -387,7 +417,6 @@
               console.log("Head Movement Sequence:", headMovementSequence);
               currentStep = 'waitingForHeadMovements';
 
-              // Start the 30-second countdown timer now that blink is detected
               remainingTime = TOTAL_TIME;
               countdownInterval = setInterval(() => {
                 remainingTime--;
@@ -436,8 +465,6 @@
               if (window.parent) {
                 const urlParams = new URLSearchParams(window.location.search);
                 const id = urlParams.get('id');
-
-                // Regular expression for a UUID
                 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
                 if (!id || !uuidRegex.test(id)) {
@@ -462,7 +489,7 @@
       cameraFrame = requestAnimationFrame(detectKeyPoints);
     }
 
-    // Draw Head Movement Indicator Function
+    // Draw Head Movement Indicator
     function drawHeadIndicator(direction) {
       landmarksCtx.save();
       landmarksCtx.strokeStyle = "yellow";
