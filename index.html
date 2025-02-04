@@ -5,27 +5,43 @@
   <!-- Ensures proper scaling on mobile devices -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>X Wallet Liveliness</title>
-
-  <!-- Responsive CSS -->
+  
+  <!-- CSS Styles -->
   <style>
-    /* Reset some default styles */
+    /* Global Reset */
     * {
+      margin: 0;
+      padding: 0;
       box-sizing: border-box;
     }
-
+    
     body {
       font-family: Arial, sans-serif;
-      text-align: center;
       background-color: #f0f0f0;
-      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
       padding: 20px;
+    }
+    
+    .container {
+      width: 100%;
+      max-width: 640px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      padding: 20px;
+      text-align: center;
     }
     
     h1 {
       font-size: 1.8em;
       margin-bottom: 20px;
+      color: #333;
     }
-
+    
     /* Webcam Control Section */
     #webcam-control {
       margin: 20px auto;
@@ -45,6 +61,11 @@
       font-size: 16px;
       border-radius: 5px;
       margin: 10px;
+      transition: background 0.3s;
+    }
+    
+    .btn:hover {
+      background-color: #45a049;
     }
     
     /* Video container styling */
@@ -65,7 +86,7 @@
       display: block;
     }
     
-    /* Overlay canvases to draw landmarks and bounding boxes */
+    /* Overlay canvases for drawing landmarks and bounding boxes */
     .overlay-canvas {
       position: absolute;
       top: 0;
@@ -74,10 +95,25 @@
       height: 100%;
     }
     
+    /* Oval overlay to guide face placement */
+    .oval-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 60%;
+      height: 80%;
+      border: 2px solid #4CAF50;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 1000;
+    }
+    
     #info-text {
       display: block;
       margin-top: 10px;
       font-weight: bold;
+      color: #333;
     }
     
     #download-photo {
@@ -87,7 +123,7 @@
       color: #4CAF50;
       text-decoration: none;
     }
-
+    
     /* Media Query for small devices */
     @media (max-width: 480px) {
       h1 {
@@ -99,7 +135,7 @@
       }
     }
   </style>
-
+  
   <!-- External Dependencies -->
   <!-- jQuery -->
   <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
@@ -113,8 +149,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@0.0.2/dist/face-landmarks-detection.min.js"></script>
   <!-- Webcam Easy -->
   <script src="https://unpkg.com/webcam-easy/dist/webcam-easy.min.js"></script>
-
-  <!-- ID Check Script (Retained as-is) -->
+  
+  <!-- ID Check Script -->
   <script>
     (function() {
       const urlParams = new URLSearchParams(window.location.search);
@@ -131,41 +167,45 @@
   </script>
 </head>
 <body>
-  <!-- Title -->
-  <h1>XWallet Liveliness</h1>
-
-  <!-- Webcam Control: Checkbox to start/stop webcam -->
-  <div id="webcam-control">
-    <input type="checkbox" id="webcam-switch">
-    <span id="webcam-caption">Initiate Liveliness Consent</span>
+  <div class="container">
+    <!-- Title -->
+    <h1>XWallet Liveliness</h1>
+    
+    <!-- Webcam Control: Checkbox to start/stop webcam -->
+    <div id="webcam-control">
+      <input type="checkbox" id="webcam-switch">
+      <span id="webcam-caption">Initiate Liveliness Consent</span>
+    </div>
+    
+    <!-- Capture Buttons -->
+    <button id="start-capture" class="btn">
+      <i class="fa fa-camera fa-fw"></i> Initiate Liveliness
+    </button>
+    <button id="capture-running" class="btn" style="display: none;">
+      <i class="fa fa-refresh fa-spin fa-fw"></i> Capturing...
+    </button>
+    
+    <!-- Video container -->
+    <div id="video-container">
+      <video id="webcam" autoplay playsinline></video>
+      <!-- Oval overlay to guide face placement -->
+      <div class="oval-overlay"></div>
+      <!-- Canvas for bounding boxes -->
+      <canvas id="bounding-box" class="overlay-canvas"></canvas>
+      <!-- Canvas for facial landmarks -->
+      <canvas id="facial-landmarks" class="overlay-canvas"></canvas>
+      <!-- Informational text -->
+      <span id="info-text" style="display: none;"></span>
+      <!-- Download Snapshot Link -->
+      <a id="download-photo" href="#" download="snapshot.png">Download Snapshot</a>
+    </div>
   </div>
-
-  <!-- Capture Buttons -->
-  <button id="start-capture" class="btn">
-    <i class="fa fa-camera fa-fw"></i> Initiate Liveliness
-  </button>
-  <button id="capture-running" class="btn" style="display: none;">
-    <i class="fa fa-refresh fa-spin fa-fw"></i> Capturing...
-  </button>
-
-  <!-- Video container: contains the webcam video and overlay canvases -->
-  <div id="video-container">
-    <video id="webcam" autoplay playsinline></video>
-    <!-- Canvas for bounding boxes -->
-    <canvas id="bounding-box" class="overlay-canvas"></canvas>
-    <!-- Canvas for facial landmarks and indicators -->
-    <canvas id="facial-landmarks" class="overlay-canvas"></canvas>
-    <!-- Informational text -->
-    <span id="info-text" style="display: none;"></span>
-    <!-- Download Snapshot Link -->
-    <a id="download-photo" href="#" download="snapshot.png">Download Snapshot</a>
-  </div>
-
-  <!-- JavaScript Code -->
+  
+  <!-- Main JavaScript -->
   <script>
     // Detect if the page is viewed on a mobile device
     const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-
+    
     // Initialize Webcam and other variables
     const webcamElement = document.getElementById('webcam');
     const boundingBoxCanvas = document.getElementById('bounding-box');
@@ -173,7 +213,7 @@
     const landmarksCanvas = document.getElementById('facial-landmarks');
     const landmarksCtx = landmarksCanvas.getContext('2d');
     const webcam = new Webcam(webcamElement, 'user', landmarksCanvas);
-
+    
     const emojiMapping = {
       blink: '👀',
       smile: '😊',
@@ -186,7 +226,7 @@
       'down-left': '↙️',
       'down-right': '↘️'
     };
-
+    
     let model = null;
     let cameraFrame = null;
     let running = false;
@@ -200,13 +240,13 @@
     // Application states:
     // "waitingForBlink" → "waitingForHeadMovements" → "waitingForSmile" → "completed"
     let currentStep = 'waitingForBlink';
-
+    
     // All possible head movement directions
     const headMovements = ['left', 'right', 'up', 'down', 'up-left', 'up-right', 'down-left', 'down-right'];
     // The sequence of exactly 5 head movements
     let headMovementSequence = [];
     let currentHeadMovementIndex = 0;
-
+    
     // DOM Elements
     const startCaptureBtn = $("#start-capture");
     const captureRunningBtn = $("#capture-running");
@@ -214,12 +254,12 @@
     const webcamCaption = $("#webcam-caption");
     const infoText = $("#info-text");
     const downloadPhotoLink = $("#download-photo");
-
+    
     // Event Listeners
     startCaptureBtn.click(function () {
       startCapture();
     });
-
+    
     webcamSwitch.change(function () {
       if (this.checked) {
         startWebcam();
@@ -231,7 +271,7 @@
         console.log("Webcam stopped");
       }        
     });
-
+    
     // Start Webcam Function
     async function startWebcam() {
       try {
@@ -245,7 +285,7 @@
         webcamSwitch.prop('checked', false);
       }
     }
-
+    
     // Stop Capture Function
     async function stopCapture() {
       if (running) {
@@ -264,7 +304,7 @@
       clearInterval(countdownInterval);
       remainingTime = TOTAL_TIME;
     }
-
+    
     // Start Capture Function
     async function startCapture() {
       captureRunningBtn.show();
@@ -277,7 +317,7 @@
       headMovementSequence = [];
       currentHeadMovementIndex = 0;
       downloadPhotoLink.hide();
-
+      
       try {
         // Load the MediaPipe Facemesh model
         model = await faceLandmarksDetection.load(
@@ -286,21 +326,21 @@
         );
         running = true;
         cameraFrame = requestAnimationFrame(detectKeyPoints);
-
+    
         // Set a fallback timeout in case the test takes too long
         timeout = setTimeout(() => {
           alert("Capture timed out. Please try again.");
           stopCapture();
           webcam.stop();
-        }, TOTAL_TIME * 1000);                
-
+        }, TOTAL_TIME * 1000);
+    
       } catch (err) {
         console.error("Error loading the model:", err);
         alert("Failed to load the face detection model.");
         stopCapture();
       }
     }
-
+    
     function getCurrentInstruction() {
       switch (currentStep) {
         case 'waitingForBlink':
@@ -316,7 +356,7 @@
           return "";
       }
     }
-
+    
     // Initialize TensorFlow.js Backend
     async function setupFaceLandmarkDetection() {
       try {
@@ -328,18 +368,18 @@
         alert("Failed to initialize TensorFlow.js backend.");
       }
     }
-
+    
     // Detect Key Points Function
     async function detectKeyPoints() {
       if (!running) return;
-
+    
       const predictions = await model.estimateFaces({
         input: webcamElement,
         returnTensors: false,
         flipHorizontal: true,
         predictIrises: false
       });
-
+    
       // Resize canvases to match video dimensions
       if (webcamElement.videoWidth && webcamElement.videoHeight) {
         boundingBoxCanvas.width = webcamElement.videoWidth;
@@ -347,15 +387,15 @@
         landmarksCanvas.width = webcamElement.videoWidth;
         landmarksCanvas.height = webcamElement.videoHeight;
       }
-
+    
       // Clear previous drawings
       boundingBoxCtx.clearRect(0, 0, boundingBoxCanvas.width, boundingBoxCanvas.height);
       landmarksCtx.clearRect(0, 0, landmarksCanvas.width, landmarksCanvas.height);
-
+    
       if (predictions.length > 0) {
         const prediction = predictions[0];
         const keypoints = prediction.scaledMesh;
-
+    
         // Draw bounding box
         const start = prediction.boundingBox.topLeft;
         const end = prediction.boundingBox.bottomRight;
@@ -363,18 +403,18 @@
         boundingBoxCtx.strokeStyle = "blue";
         boundingBoxCtx.lineWidth = 2;
         boundingBoxCtx.strokeRect(start[0], start[1], size[0], size[1]);
-
+    
         // On non‑mobile devices, draw facial landmarks with smooth lines
         if (!isMobile) {
           drawSmoothFacialLandmarks(keypoints, currentStep);
         }
-
+    
         // During head movement step, display the arrow indicator
         if (currentStep === 'waitingForHeadMovements') {
           const currentDirection = headMovementSequence[currentHeadMovementIndex];
           drawHeadIndicator(currentDirection);
         }
-
+    
         // Process current state
         switch (currentStep) {
           case 'waitingForBlink':
@@ -386,7 +426,7 @@
               }
               console.log("Head Movement Sequence:", headMovementSequence);
               currentStep = 'waitingForHeadMovements';
-
+    
               // Start the countdown timer once blink is detected
               remainingTime = TOTAL_TIME;
               countdownInterval = setInterval(() => {
@@ -432,7 +472,7 @@
               webcam.stop();
               webcamElement.style.display = "none";
               console.log("Webcam closed after snapshot capture.");
-
+    
               // Post the snapshot to parent if available
               if (window.parent) {
                 const urlParams = new URLSearchParams(window.location.search);
@@ -457,25 +497,22 @@
       } else {
         console.log("No face detected.");
       }
-
+    
       cameraFrame = requestAnimationFrame(detectKeyPoints);
     }
-
+    
     // Enhanced drawing function using smooth quadratic curves.
-    // This method interpolates between facial landmark points for a visually appealing overlay.
     function drawSmoothFacialLandmarks(keypoints, step) {
       landmarksCtx.lineWidth = 2;
       landmarksCtx.strokeStyle = "white";
       landmarksCtx.fillStyle = "white";
-
+    
       // Define landmark groups for drawing.
-      // These arrays are based on the standard FaceMesh indices.
       const leftEye = [33, 7, 163, 144, 145, 153, 154, 155, 133];
       const rightEye = [362, 382, 381, 380, 374, 373, 390, 249, 263];
       const faceOutline = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109, 10];
       const mouthOuter = [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95, 185, 40, 39, 37, 0, 267, 269, 270, 409, 415, 310, 311, 312, 13, 82, 81, 80, 191, 78, 95];
-
-      // Utility function: draw a smooth contour by interpolating between points.
+    
       function drawSmoothContour(indices) {
         if (indices.length < 2) return;
         landmarksCtx.beginPath();
@@ -484,18 +521,15 @@
         for (let i = 1; i < indices.length - 1; i++) {
           const pt = keypoints[indices[i]];
           const ptNext = keypoints[indices[i + 1]];
-          // Calculate midpoint for quadratic curve.
           const midX = (pt[0] + ptNext[0]) / 2;
           const midY = (pt[1] + ptNext[1]) / 2;
           landmarksCtx.quadraticCurveTo(pt[0], pt[1], midX, midY);
         }
-        // Curve to the last point.
         let lastPt = keypoints[indices[indices.length - 1]];
         landmarksCtx.lineTo(lastPt[0], lastPt[1]);
         landmarksCtx.stroke();
       }
-
-      // Draw the contours with smoothing.
+    
       drawSmoothContour(leftEye);
       drawSmoothContour(rightEye);
       
@@ -507,7 +541,7 @@
         drawSmoothContour(mouthOuter);
       }
     }
-
+    
     // Draw Head Movement Indicator Function
     function drawHeadIndicator(direction) {
       landmarksCtx.save();
@@ -583,7 +617,7 @@
       landmarksCtx.stroke();
       landmarksCtx.restore();
     }
-
+    
     // Blink Detection Function
     let blinkFrameCount = 0;
     function detectBlink(keypoints) {
@@ -609,7 +643,7 @@
       
       return false;
     }
-
+    
     // Smile Detection Function
     function detectSmile(keypoints) {
       const mouth = { left: 61, right: 291, top: 13, bottom: 14 };
@@ -626,7 +660,7 @@
       const MAR_THRESHOLD = 0.16;
       return mar > MAR_THRESHOLD;
     }
-
+    
     // Head Movement Detection Function
     function detectHeadMovement(keypoints, direction) {
       const noseTipIndex = 1;
@@ -671,7 +705,7 @@
       console.log(`Nose: (${noseX.toFixed(1)}, ${noseY.toFixed(1)}) | Target: ${direction} | Moved: ${moved}`);
       return moved;
     }
-
+    
     // Calculate Eye Aspect Ratio (EAR)
     function calculateEAR(keypoints, eyeIndices) {
       const a = euclideanDistance(
@@ -684,18 +718,17 @@
       );
       return a / (2.0 * b);
     }
-
+    
     // Euclidean Distance Function
     function euclideanDistance(x1, y1, x2, y2) {
       return Math.sqrt(Math.pow((x1 - x2), 2) + Math.pow((y1 - y2), 2));
     }
-
+    
     // Initialize the application
     async function main() {
       await setupFaceLandmarkDetection();
     }
     main();
   </script>
-  
 </body>
 </html>
