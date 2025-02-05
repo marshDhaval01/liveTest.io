@@ -83,7 +83,7 @@
       position: relative;
       width: 100%;
       max-width: 640px;
-      aspect-ratio: 4 / 3;
+      /* Height will be set dynamically to maintain a 4:3 aspect ratio */
       margin: 0 auto;
       display: none; /* Shown after the webcam starts */
       border: 2px solid #4CAF50;
@@ -154,12 +154,28 @@
   </div>
 
   <script>
-    // Initialize Webcam
+    // --- Dynamic Resize Logic ---
+    function adjustVideoSize() {
+      const container = document.getElementById('video-container');
+      // Use 90% of the window's width or 640px (whichever is smaller)
+      const width = Math.min(window.innerWidth * 0.9, 640);
+      // Maintain a 4:3 aspect ratio (height = width * 3/4)
+      container.style.width = width + 'px';
+      container.style.height = (width * 3 / 4) + 'px';
+    }
+    
+    // Adjust size on load, resize, and orientation change
+    window.addEventListener('resize', adjustVideoSize);
+    window.addEventListener('orientationchange', adjustVideoSize);
+    document.addEventListener('DOMContentLoaded', adjustVideoSize);
+
+    // --- Webcam and Face Detection Logic ---
     const webcamElement = document.getElementById('webcam');
     const boundingBoxCanvas = document.getElementById('bounding-box');
     const boundingBoxCtx = boundingBoxCanvas.getContext('2d');
     const landmarksCanvas = document.getElementById('facial-landmarks');
     const landmarksCtx = landmarksCanvas.getContext('2d');
+    // Initialize Webcam Easy; you can also pass custom constraints if needed
     const webcam = new Webcam(webcamElement, 'user', landmarksCanvas);
 
     const emojiMapping = {
@@ -225,6 +241,10 @@
     // Start Webcam Function
     async function startWebcam() {
       try {
+        // Optionally, set explicit constraints here if needed.
+        // For example:
+        // const constraints = { video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } };
+        // await webcam.start(constraints);
         await webcam.start();
         webcamCaption.text('Click to Stop Camera');
         $("#video-container").show();
