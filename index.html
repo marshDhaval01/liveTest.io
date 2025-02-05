@@ -212,12 +212,12 @@
     let headMovementSequence = [];
     let currentHeadMovementIndex = 0;
 
-    // Flag to check if initial centering has been completed
-    let initialCentered = false;
+    // Instead of forcing the user to center their face, we capture the initial nose position once a face is detected.
+    let initialNosePosition = null;
 
     // DOM Elements
     const startCaptureBtn = $("#start-capture");
-    const captureRunningBtn = $("#capture-running");
+    // const captureRunningBtn = $("#capture-running"); // (unused in this version)
     const webcamSwitch = $("#webcam-switch");
     const webcamCaption = $("#webcam-caption");
     const infoText = $("#info-text");
@@ -243,10 +243,6 @@
     // Start Webcam Function
     async function startWebcam() {
       try {
-        // Optionally, set explicit constraints here if needed.
-        // For example:
-        // const constraints = { video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } };
-        // await webcam.start(constraints);
         await webcam.start();
         webcamCaption.text('Click to Stop Camera');
         $("#video-container").show();
@@ -261,7 +257,7 @@
     // Stop Capture Function
     async function stopCapture() {
       if (running) {
-        captureRunningBtn.hide();
+        // Reset UI elements
         startCaptureBtn.show();
         infoText.hide();
         running = false;
@@ -275,20 +271,20 @@
       // Clear any active countdown timer
       clearInterval(countdownInterval);
       remainingTime = TOTAL_TIME;
-      // Reset initial centering flag for next capture
-      initialCentered = false;
+      // Reset the initial nose position for next capture
+      initialNosePosition = null;
     }
 
     // Start Capture Function
     async function startCapture() {
-      captureRunningBtn.show();
+      // UI updates
+      // captureRunningBtn.show();  // (if you wish to show a “capturing” indicator)
       startCaptureBtn.hide();
       infoText.text('Please blink to capture.');
       infoText.show();
       currentStep = 'waitingForBlink';
-      initialCentered = false; // Reset centering flag
-      
-      // Reset head movement sequence and timer
+      // Reset baseline and head movement sequence
+      initialNosePosition = null;
       headMovementSequence = [];
       currentHeadMovementIndex = 0;
       downloadPhotoLink.hide();
@@ -316,6 +312,7 @@
       }
     }
 
+    // Get the current instruction text (for head movement, blink, smile)
     function getCurrentInstruction() {
       switch (currentStep) {
         case 'waitingForBlink':
@@ -332,11 +329,6 @@
       }
     }
 
-    // Check if the face is centered (using the "center" case)
-    function isFaceCentered(keypoints) {
-      return detectHeadMovement(keypoints, 'center');
-    }
-
     // Initialize TensorFlow.js Backend
     async function setupFaceLandmarkDetection() {
       try {
@@ -349,7 +341,7 @@
       }
     }
 
-    // Detect Key Points Function
+    // Main detection loop – note that we removed any check that forces the face to be centered.
     async function detectKeyPoints() {
       if (!running) return;
 
@@ -368,7 +360,7 @@
         const prediction = predictions[0];
         const keypoints = prediction.scaledMesh;
 
-        // Draw bounding box
+        // Draw the bounding box on the detected face
         const start = prediction.boundingBox.topLeft;
         const end = prediction.boundingBox.bottomRight;
         const size = [end[0] - start[0], end[1] - start[1]];
@@ -376,22 +368,18 @@
         boundingBoxCtx.lineWidth = 2;
         boundingBoxCtx.strokeRect(start[0], start[1], size[0], size[1]);
 
-        // Only check if the face is centered if we haven't already completed initial centering.
-        if (!initialCentered) {
-          if (!isFaceCentered(keypoints)) {
-            infoText.text("Please put your face in the center.");
-            cameraFrame = requestAnimationFrame(detectKeyPoints);
-            return;
-          } else {
-            initialCentered = true;
-            console.log("Face is centered.");
-          }
+        // Instead of asking the user to center the face, we capture the initial nose position
+        // once when in the 'waitingForBlink' step.
+        if (currentStep === 'waitingForBlink' && initialNosePosition === null) {
+          // Using the nose tip (keypoints index 1) as a baseline reference.
+          initialNosePosition = { x: keypoints[1][0], y: keypoints[1][1] };
+          console.log("Initial nose position set:", initialNosePosition);
         }
 
-        // Draw facial landmarks
+        // Draw facial landmarks (for feedback)
         drawFacialLandmarks(keypoints, currentStep);
 
-        // If in the head movement step, display the arrow indicator
+        // If in the head movement step, display the arrow indicator based on the initial nose position.
         if (currentStep === 'waitingForHeadMovements') {
           const currentDirection = headMovementSequence[currentHeadMovementIndex];
           drawHeadIndicator(currentDirection);
@@ -493,74 +481,126 @@
       cameraFrame = requestAnimationFrame(detectKeyPoints);
     }
 
-    // Draw Head Movement Indicator Function
+    // Update head movement detection to use the initial nose position as baseline.
+    function detectHeadMovement(keypoints, direction) {
+      const noseTipIndex = 1;
+      const nose = keypoints[noseTipIndex];
+      const noseX = nose[0];
+      const noseY = nose[1];
+      // Use the initial nose position if available; otherwise fall back to the canvas center.
+      let baselineX = landmarksCanvas.width / 2;
+      let baselineY = landmarksCanvas.height / 2;
+      if (initialNosePosition) {
+        baselineX = initialNosePosition.x;
+        baselineY = initialNosePosition.y;
+      }
+      const THRESHOLD_X = 30;
+      const THRESHOLD_Y = 20;
+      let moved = false;
+      
+      switch(direction) {
+        case 'left':
+          if (noseX < baselineX - THRESHOLD_X) moved = true;
+          break;
+        case 'right':
+          if (noseX > baselineX + THRESHOLD_X) moved = true;
+          break;
+        case 'up':
+          if (noseY < baselineY - THRESHOLD_Y) moved = true;
+          break;
+        case 'down':
+          if (noseY > baselineY + THRESHOLD_Y) moved = true;
+          break;
+        case 'up-left':
+          if (noseX < baselineX - THRESHOLD_X && noseY < baselineY - THRESHOLD_Y) moved = true;
+          break;
+        case 'up-right':
+          if (noseX > baselineX + THRESHOLD_X && noseY < baselineY - THRESHOLD_Y) moved = true;
+          break;
+        case 'down-left':
+          if (noseX < baselineX - THRESHOLD_X && noseY > baselineY + THRESHOLD_Y) moved = true;
+          break;
+        case 'down-right':
+          if (noseX > baselineX + THRESHOLD_X && noseY > baselineY + THRESHOLD_Y) moved = true;
+          break;
+        default:
+          break;
+      }
+      
+      console.log(
+        `Nose: (${noseX.toFixed(1)}, ${noseY.toFixed(1)}) | Baseline: (${baselineX.toFixed(1)}, ${baselineY.toFixed(1)}) | Target: ${direction} | Moved: ${moved}`
+      );
+      return moved;
+    }
+
+    // Update the head movement indicator so that its base is the initial nose position.
     function drawHeadIndicator(direction) {
       landmarksCtx.save();
       landmarksCtx.strokeStyle = "yellow";
       landmarksCtx.fillStyle = "yellow";
       landmarksCtx.lineWidth = 4;
       
-      const centerX = landmarksCanvas.width / 2;
-      const centerY = landmarksCanvas.height / 2;
+      const baseX = initialNosePosition ? initialNosePosition.x : landmarksCanvas.width / 2;
+      const baseY = initialNosePosition ? initialNosePosition.y : landmarksCanvas.height / 2;
       const arrowLength = 40;
       
       landmarksCtx.beginPath();
       switch(direction) {
         case 'left':
-          landmarksCtx.moveTo(centerX, centerY);
-          landmarksCtx.lineTo(centerX - arrowLength, centerY);
-          landmarksCtx.lineTo(centerX - arrowLength + 10, centerY - 10);
-          landmarksCtx.moveTo(centerX - arrowLength, centerY);
-          landmarksCtx.lineTo(centerX - arrowLength + 10, centerY + 10);
+          landmarksCtx.moveTo(baseX, baseY);
+          landmarksCtx.lineTo(baseX - arrowLength, baseY);
+          landmarksCtx.lineTo(baseX - arrowLength + 10, baseY - 10);
+          landmarksCtx.moveTo(baseX - arrowLength, baseY);
+          landmarksCtx.lineTo(baseX - arrowLength + 10, baseY + 10);
           break;
         case 'right':
-          landmarksCtx.moveTo(centerX, centerY);
-          landmarksCtx.lineTo(centerX + arrowLength, centerY);
-          landmarksCtx.lineTo(centerX + arrowLength - 10, centerY - 10);
-          landmarksCtx.moveTo(centerX + arrowLength, centerY);
-          landmarksCtx.lineTo(centerX + arrowLength - 10, centerY + 10);
+          landmarksCtx.moveTo(baseX, baseY);
+          landmarksCtx.lineTo(baseX + arrowLength, baseY);
+          landmarksCtx.lineTo(baseX + arrowLength - 10, baseY - 10);
+          landmarksCtx.moveTo(baseX + arrowLength, baseY);
+          landmarksCtx.lineTo(baseX + arrowLength - 10, baseY + 10);
           break;
         case 'up':
-          landmarksCtx.moveTo(centerX, centerY);
-          landmarksCtx.lineTo(centerX, centerY - arrowLength);
-          landmarksCtx.lineTo(centerX - 10, centerY - arrowLength + 10);
-          landmarksCtx.moveTo(centerX, centerY - arrowLength);
-          landmarksCtx.lineTo(centerX + 10, centerY - arrowLength + 10);
+          landmarksCtx.moveTo(baseX, baseY);
+          landmarksCtx.lineTo(baseX, baseY - arrowLength);
+          landmarksCtx.lineTo(baseX - 10, baseY - arrowLength + 10);
+          landmarksCtx.moveTo(baseX, baseY - arrowLength);
+          landmarksCtx.lineTo(baseX + 10, baseY - arrowLength + 10);
           break;
         case 'down':
-          landmarksCtx.moveTo(centerX, centerY);
-          landmarksCtx.lineTo(centerX, centerY + arrowLength);
-          landmarksCtx.lineTo(centerX - 10, centerY + arrowLength - 10);
-          landmarksCtx.moveTo(centerX, centerY + arrowLength);
-          landmarksCtx.lineTo(centerX + 10, centerY + arrowLength - 10);
+          landmarksCtx.moveTo(baseX, baseY);
+          landmarksCtx.lineTo(baseX, baseY + arrowLength);
+          landmarksCtx.lineTo(baseX - 10, baseY + arrowLength - 10);
+          landmarksCtx.moveTo(baseX, baseY + arrowLength);
+          landmarksCtx.lineTo(baseX + 10, baseY + arrowLength - 10);
           break;
         case 'up-left':
-          landmarksCtx.moveTo(centerX, centerY);
-          landmarksCtx.lineTo(centerX - arrowLength, centerY - arrowLength);
-          landmarksCtx.lineTo(centerX - arrowLength + 10, centerY - arrowLength + 10);
-          landmarksCtx.moveTo(centerX - arrowLength, centerY - arrowLength);
-          landmarksCtx.lineTo(centerX - arrowLength + 10, centerY - arrowLength - 10);
+          landmarksCtx.moveTo(baseX, baseY);
+          landmarksCtx.lineTo(baseX - arrowLength, baseY - arrowLength);
+          landmarksCtx.lineTo(baseX - arrowLength + 10, baseY - arrowLength + 10);
+          landmarksCtx.moveTo(baseX - arrowLength, baseY - arrowLength);
+          landmarksCtx.lineTo(baseX - arrowLength + 10, baseY - arrowLength - 10);
           break;
         case 'up-right':
-          landmarksCtx.moveTo(centerX, centerY);
-          landmarksCtx.lineTo(centerX + arrowLength, centerY - arrowLength);
-          landmarksCtx.lineTo(centerX + arrowLength - 10, centerY - arrowLength + 10);
-          landmarksCtx.moveTo(centerX + arrowLength, centerY - arrowLength);
-          landmarksCtx.lineTo(centerX + arrowLength - 10, centerY - arrowLength - 10);
+          landmarksCtx.moveTo(baseX, baseY);
+          landmarksCtx.lineTo(baseX + arrowLength, baseY - arrowLength);
+          landmarksCtx.lineTo(baseX + arrowLength - 10, baseY - arrowLength + 10);
+          landmarksCtx.moveTo(baseX + arrowLength, baseY - arrowLength);
+          landmarksCtx.lineTo(baseX + arrowLength - 10, baseY - arrowLength - 10);
           break;
         case 'down-left':
-          landmarksCtx.moveTo(centerX, centerY);
-          landmarksCtx.lineTo(centerX - arrowLength, centerY + arrowLength);
-          landmarksCtx.lineTo(centerX - arrowLength + 10, centerY + arrowLength - 10);
-          landmarksCtx.moveTo(centerX - arrowLength, centerY + arrowLength);
-          landmarksCtx.lineTo(centerX - arrowLength + 10, centerY + arrowLength + 10);
+          landmarksCtx.moveTo(baseX, baseY);
+          landmarksCtx.lineTo(baseX - arrowLength, baseY + arrowLength);
+          landmarksCtx.lineTo(baseX - arrowLength + 10, baseY + arrowLength - 10);
+          landmarksCtx.moveTo(baseX - arrowLength, baseY + arrowLength);
+          landmarksCtx.lineTo(baseX - arrowLength + 10, baseY + arrowLength + 10);
           break;
         case 'down-right':
-          landmarksCtx.moveTo(centerX, centerY);
-          landmarksCtx.lineTo(centerX + arrowLength, centerY + arrowLength);
-          landmarksCtx.lineTo(centerX + arrowLength - 10, centerY + arrowLength - 10);
-          landmarksCtx.moveTo(centerX + arrowLength, centerY + arrowLength);
-          landmarksCtx.lineTo(centerX + arrowLength - 10, centerY + arrowLength + 10);
+          landmarksCtx.moveTo(baseX, baseY);
+          landmarksCtx.lineTo(baseX + arrowLength, baseY + arrowLength);
+          landmarksCtx.lineTo(baseX + arrowLength - 10, baseY + arrowLength - 10);
+          landmarksCtx.moveTo(baseX + arrowLength, baseY + arrowLength);
+          landmarksCtx.lineTo(baseX + arrowLength - 10, baseY + arrowLength + 10);
           break;
         default:
           break;
@@ -612,58 +652,6 @@
       return mar > MAR_THRESHOLD;
     }
 
-    // Head Movement Detection
-    function detectHeadMovement(keypoints, direction) {
-      const noseTipIndex = 1;
-      const nose = keypoints[noseTipIndex];
-      const noseX = nose[0];
-      const noseY = nose[1];
-      const frameCenterX = boundingBoxCanvas.width / 2;
-      const frameCenterY = boundingBoxCanvas.height / 2;
-      const THRESHOLD_X = 30;
-      const THRESHOLD_Y = 20;
-      let moved = false;
-      
-      switch(direction) {
-        case 'left':
-          if (noseX < frameCenterX - THRESHOLD_X) moved = true;
-          break;
-        case 'right':
-          if (noseX > frameCenterX + THRESHOLD_X) moved = true;
-          break;
-        case 'up':
-          if (noseY < frameCenterY - THRESHOLD_Y) moved = true;
-          break;
-        case 'down':
-          if (noseY > frameCenterY + THRESHOLD_Y) moved = true;
-          break;
-        case 'up-left':
-          if (noseX < frameCenterX - THRESHOLD_X && noseY < frameCenterY - THRESHOLD_Y) moved = true;
-          break;
-        case 'up-right':
-          if (noseX > frameCenterX + THRESHOLD_X && noseY < frameCenterY - THRESHOLD_Y) moved = true;
-          break;
-        case 'down-left':
-          if (noseX < frameCenterX - THRESHOLD_X && noseY > frameCenterY + THRESHOLD_Y) moved = true;
-          break;
-        case 'down-right':
-          if (noseX > frameCenterX + THRESHOLD_X && noseY > frameCenterY + THRESHOLD_Y) moved = true;
-          break;
-        case 'center':
-          if (Math.abs(noseX - frameCenterX) < THRESHOLD_X && Math.abs(noseY - frameCenterY) < THRESHOLD_Y) {
-            moved = true;
-          }
-          break;
-        default:
-          break;
-      }
-      
-      console.log(
-        `Nose: (${noseX.toFixed(1)}, ${noseY.toFixed(1)}) | Target: ${direction} | Moved: ${moved}`
-      );
-      return moved;
-    }
-
     // Draw Facial Landmarks
     function drawFacialLandmarks(keypoints, step) {
       landmarksCtx.lineWidth = 2;
@@ -700,7 +688,8 @@
       drawLines(eyes.left);
       drawLines(eyes.right);
 
-      // Draw face outline during head movement steps
+      // Optionally, during head movement steps, you can also draw an outline
+      // (this code remains unchanged)
       if (step === 'waitingForHeadMovements') {
         const faceOutline = [
           10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 
