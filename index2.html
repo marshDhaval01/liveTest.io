@@ -39,31 +39,22 @@
   <script src="https://unpkg.com/webcam-easy/dist/webcam-easy.min.js"></script>
 
   <style>
-    /* ----- Base Styles ----- */
+    /* ----- Circular UI Styles ----- */
     body {
       margin: 0;
-      padding: 20px;
+      padding: 0;
       display: flex;
       flex-direction: column;
+      justify-content: center;
       align-items: center;
+      min-height: 100vh;
       background-color: #f0f0f0;
       font-family: Arial, sans-serif;
       text-align: center;
     }
     h1 {
-      margin-bottom: 10px;
+      margin-bottom: 20px;
     }
-    #timer {
-      font-size: 18px;
-      margin-bottom: 15px;
-    }
-    #instruction-text {
-      font-size: 18px;
-      margin-top: 15px;
-      color: #333;
-    }
-
-    /* ----- Circular UI Styles ----- */
     .circle-container {
       position: relative;
       width: 300px;
@@ -104,6 +95,15 @@
       border-radius: 50%;
       transform: scaleX(-1); /* Mirror the video */
     }
+    .circle-instruction {
+      position: absolute;
+      bottom: 10px;
+      background-color: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 14px;
+    }
     .close-button {
       position: absolute;
       top: 10px;
@@ -126,42 +126,31 @@
     }
     
     /* ----- Hidden Elements for Internal Drawing ----- */
-    #bounding-box, #facial-landmarks {
+    /* These elements are required for drawing bounding boxes and facial landmarks,
+       but are hidden from view. */
+    #bounding-box, #facial-landmarks, #download-photo {
       display: none;
-    }
-    /* Download button: initially hidden */
-    #download-photo {
-      display: none;
-      margin-top: 15px;
-      padding: 8px 15px;
-      background: #7e57c2;
-      color: #fff;
-      text-decoration: none;
-      border-radius: 4px;
     }
   </style>
 </head>
 <body>
 
-  <!-- Heading -->
   <h1>XWallet Liveliness</h1>
 
-  <!-- Timer (placed just below the title) -->
-  <div id="timer">Time remaining: 30 seconds</div>
-
-  <!-- Circular UI Container with Video -->
+  <!-- Circular UI Container -->
   <div class="circle-container">
     <div class="circle-border"></div>
     <div class="circle-content">
+      <!-- The video element is used for the webcam feed -->
       <video id="webcam" autoplay playsinline muted></video>
     </div>
+    <!-- Close button to stop capture/detection -->
     <button class="close-button" onclick="stopCapture()">×</button>
+    <!-- Instruction text (also used to display feedback) -->
+    <div class="circle-instruction" id="info-text">Please blink to start.</div>
   </div>
 
-  <!-- Instruction text (now outside the circle container) -->
-  <div id="instruction-text">Please blink to start.</div>
-
-  <!-- Hidden canvases for internal drawing -->
+  <!-- Hidden canvases for internal use (drawing bounding boxes and landmarks) -->
   <canvas id="bounding-box" width="640" height="480"></canvas>
   <canvas id="facial-landmarks" width="640" height="480"></canvas>
   <!-- Hidden download link for the captured snapshot -->
@@ -174,10 +163,8 @@
     const boundingBoxCtx = boundingBoxCanvas.getContext('2d');
     const landmarksCanvas = document.getElementById('facial-landmarks');
     const landmarksCtx = landmarksCanvas.getContext('2d');
-
-    // Using jQuery for timer and instruction texts, and the download link.
-    const timerText = $("#timer");
-    const instructionText = $("#instruction-text");
+    // Using jQuery for the info text and download link
+    const infoText = $("#info-text");
     const downloadPhotoLink = $("#download-photo");
 
     // Initialize Webcam Easy with the video element.
@@ -196,7 +183,7 @@
     // "waitingForBlink" → "waitingForHeadMovements" → "waitingForSmile" → "completed"
     let currentStep = 'waitingForBlink';
 
-    // Head movement directions and sequence.
+    // Head movement directions and sequence.  'up-left', 'up-right', 'down-left', 'down-right'
     const headMovements = ['left', 'right', 'up', 'down'];
     let headMovementSequence = [];
     let currentHeadMovementIndex = 0;
@@ -272,7 +259,7 @@
     // Stop the webcam (called by the close button).
     function stopWebcam() {
       webcam.stop();
-      instructionText.text("Webcam stopped.");
+      infoText.text("Webcam stopped.");
     }
 
     // ----- Detection & Drawing Functions -----
@@ -303,6 +290,8 @@
         boundingBoxCtx.lineWidth = 2;
         boundingBoxCtx.strokeRect(start[0], start[1], size[0], size[1]);
 
+        // (Removed face-centering check to avoid instructing the user to center their face.)
+
         // Draw facial landmarks on the hidden canvas.
         drawFacialLandmarks(keypoints, currentStep);
 
@@ -326,12 +315,9 @@
 
               // Start a countdown timer.
               remainingTime = TOTAL_TIME;
-              timerText.text(`Time remaining: ${remainingTime} seconds`);
-              instructionText.text(getCurrentInstruction());
               countdownInterval = setInterval(() => {
                 remainingTime--;
-                timerText.text(`Time remaining: ${remainingTime} seconds`);
-                instructionText.text(getCurrentInstruction());
+                infoText.text(`Time remaining: ${remainingTime} seconds. ${getCurrentInstruction()}`);
                 if (remainingTime <= 0) {
                   clearInterval(countdownInterval);
                   alert("Capture timed out. Please try again.");
@@ -339,6 +325,7 @@
                   webcam.stop();
                 }
               }, 1000);
+              infoText.text(`Time remaining: ${remainingTime} seconds. ${getCurrentInstruction()}`);
             }
             break;
           case 'waitingForHeadMovements':
@@ -348,11 +335,9 @@
                 console.log(`Head movement (${currentDirection}) detected!`);
                 currentHeadMovementIndex++;
                 if (currentHeadMovementIndex < headMovementSequence.length) {
-                  timerText.text(`Time remaining: ${remainingTime} seconds`);
-                  instructionText.text(`Good! Next, please move your head ${headMovementSequence[currentHeadMovementIndex]} ${emojiMapping[headMovementSequence[currentHeadMovementIndex]]}`);
+                  infoText.text(`Time remaining: ${remainingTime} seconds. Good! Next, please move your head ${headMovementSequence[currentHeadMovementIndex]}.`);
                 } else {
-                  timerText.text(`Time remaining: ${remainingTime} seconds`);
-                  instructionText.text(`All head movements detected! Now, please smile ${emojiMapping.smile}`);
+                  infoText.text(`Time remaining: ${remainingTime} seconds. All head movements detected! Now, please smile.`);
                   currentStep = 'waitingForSmile';
                 }
               }
@@ -361,15 +346,14 @@
           case 'waitingForSmile':
             if (detectSmile(keypoints)) {
               console.log('Smile detected!');
-              timerText.text(''); // Clear timer once complete
-              instructionText.text('Smile detected! Capture completed.');
+              infoText.text('Smile detected! Capture completed.');
               clearTimeout(timeout);
               clearInterval(countdownInterval);
               stopCapture();
               let picture = webcam.snap();
               downloadPhotoLink.attr('href', picture);
               downloadPhotoLink.show();
-              instructionText.text('Capture completed! You can download your snapshot.');
+              infoText.text('Capture completed! You can download your snapshot.');
               currentStep = 'completed';
               webcam.stop();
               webcamElement.style.display = "none";
@@ -417,6 +401,8 @@
           return "";
       }
     }
+
+    // (The isFaceCentered function and its related check have been removed to avoid instructing the user.)
 
     async function setupFaceLandmarkDetection() {
       try {
