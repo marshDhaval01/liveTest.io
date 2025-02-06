@@ -188,9 +188,6 @@
     let headMovementSequence = [];
     let currentHeadMovementIndex = 0;
 
-    // Flag to check if initial centering has been completed
-    let initialCentered = false;
-
     // Emoji mapping for instructions.
     const emojiMapping = {
       blink: '👀',
@@ -222,7 +219,6 @@
     // Start the capture process: load the face-landmarks model and begin detection.
     async function startCapture() {
       currentStep = 'waitingForBlink';
-      initialCentered = false;
       headMovementSequence = [];
       currentHeadMovementIndex = 0;
       downloadPhotoLink.hide();
@@ -258,7 +254,6 @@
       }
       clearInterval(countdownInterval);
       remainingTime = TOTAL_TIME;
-      initialCentered = false;
     }
 
     // Stop the webcam (called by the close button).
@@ -295,16 +290,7 @@
         boundingBoxCtx.lineWidth = 2;
         boundingBoxCtx.strokeRect(start[0], start[1], size[0], size[1]);
 
-        // Ensure the face is centered before proceeding.
-        if (!initialCentered) {
-          if (!isFaceCentered(keypoints)) {
-            infoText.text("Please put your face in the center.");
-            return requestAnimationFrame(detectKeyPoints);
-          } else {
-            initialCentered = true;
-            console.log("Face is centered.");
-          }
-        }
+        // (Removed face-centering check to avoid instructing the user to center their face.)
 
         // Draw facial landmarks on the hidden canvas.
         drawFacialLandmarks(keypoints, currentStep);
@@ -416,10 +402,7 @@
       }
     }
 
-    function isFaceCentered(keypoints) {
-      // Use the 'center' check from detectHeadMovement.
-      return detectHeadMovement(keypoints, 'center');
-    }
+    // (The isFaceCentered function and its related check have been removed to avoid instructing the user.)
 
     async function setupFaceLandmarkDetection() {
       try {
