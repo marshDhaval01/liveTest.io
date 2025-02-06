@@ -3,12 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <title>X Wallet Liveliness</title>
-  
-  <!-- Responsive Meta Tag for Mobile/Tablet -->
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-  <!-- <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"> -->
-
+  <!-- Query Parameter Check -->
   <script>
     (function() {
       const urlParams = new URLSearchParams(window.location.search);
@@ -16,7 +13,7 @@
       // Regular expression for a UUID (v4/v1)
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       
-      // Check if the id exists and if it matches the UUID format
+      // If no valid id, deny access.
       if (!id || !uuidRegex.test(id)) {
         alert("Access denied!");
         window.location.href = "about:blank";
@@ -42,7 +39,7 @@
   <script src="https://unpkg.com/webcam-easy/dist/webcam-easy.min.js"></script>
 
   <style>
-    /* Use flex layout to center content on mobile/tablet devices */
+    /* ----- Circular UI Styles ----- */
     body {
       margin: 0;
       padding: 0;
@@ -53,75 +50,86 @@
       min-height: 100vh;
       background-color: #f0f0f0;
       font-family: Arial, sans-serif;
+      text-align: center;
     }
-
     h1 {
       margin-bottom: 20px;
-      text-align: center;
     }
-
-    #webcam-control {
-      margin: 20px;
-      text-align: center;
-    }
-
-    .btn {
-      cursor: pointer;
-      background-color: #4c4f4c;
-      border: none;
-      padding: 15px;
-      color: white;
-      font-size: 16px;
-      border-radius: 5px;
-      margin: 10px;
-    }
-
-    /* 
-      Responsive container for video and canvases:
-      - The container maintains a 4:3 aspect ratio.
-      - It has a maximum width of 640px, preserving the 640×480 coordinate system.
-    */
-    #video-container {
+    .circle-container {
       position: relative;
-      width: 100%;
-      max-width: 640px;
-      /* Height will be set dynamically to maintain a 4:3 aspect ratio */
-      margin: 0 auto;
-      display: none; /* Shown after the webcam starts */
-      border: 2px solid #4CAF50;
-      border-radius: 5px;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      background-color: #fff;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
     }
-
-    /* Video and canvas elements scale to fill the container */
-    #webcam,
-    #bounding-box,
-    #facial-landmarks {
+    .circle-border {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      border-radius: 50%;
+      border: 5px solid transparent;
+      border-top: 5px solid #7e57c2;
+      animation: rotate 2s linear infinite;
     }
-
-    /* Prevent pointer events on overlay canvases */
-    .overlay-canvas {
-      pointer-events: none;
+    .circle-content {
+      position: relative;
+      width: 90%;
+      height: 90%;
+      border-radius: 50%;
+      background-color: #f8f8f8;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
-
-    #info-text {
-      display: block;
-      margin-top: 10px;
-      font-weight: bold;
-      text-align: center;
+    .circle-content video {
+      width: 100%;
+      height: auto;
+      border-radius: 50%;
+      transform: scaleX(-1); /* Mirror the video */
     }
-
-    #download-photo {
-      display: none;
-      margin-top: 10px;
+    .circle-instruction {
+      position: absolute;
+      bottom: 10px;
+      background-color: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 14px;
+    }
+    .close-button {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: #ff6666;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
       font-size: 16px;
-      color: #4CAF50;
-      text-decoration: none;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+    }
+    @keyframes rotate {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* ----- Hidden Elements for Internal Drawing ----- */
+    /* These elements are required for drawing bounding boxes and facial landmarks,
+       but are hidden from view. */
+    #bounding-box, #facial-landmarks, #download-photo {
+      display: none;
     }
   </style>
 </head>
@@ -129,57 +137,61 @@
 
   <h1>XWallet Liveliness</h1>
 
-  <div id="webcam-control">
-    <input type="checkbox" id="webcam-switch">
-    <span id="webcam-caption">Initiate Liveliness Now!</span>
-  </div>
-
-  <div id="video-container">
-    <video id="webcam" autoplay playsinline width="640" height="480"></video>
-    <canvas id="bounding-box" class="overlay-canvas" width="640" height="480"></canvas>
-    <canvas id="facial-landmarks" class="overlay-canvas" width="640" height="480"></canvas>
-
-    <!-- Controls positioned at the bottom of the container -->
-    <div style="position: absolute; bottom: 10px; width: 100%; text-align: center;">
-      <button id="start-capture" class="btn">
-        <i class="fa fa-camera fa-fw"></i> Begin Liveliness
-      </button>
-      <!-- <button id="capture-running" class="btn" style="display: none;">
-        <i class="fa fa-refresh fa-spin fa-fw"></i> Capturing...
-      </button> -->
-      <span id="info-text" style="display: none;">Please blink to capture.</span>
-
-      <div style="margin-top: 10px;">
-        <a id="download-photo" href="#" download="snapshot.png">Download Snapshot</a>
-      </div>
+  <!-- Circular UI Container -->
+  <div class="circle-container">
+    <div class="circle-border"></div>
+    <div class="circle-content">
+      <!-- The video element is used for the webcam feed -->
+      <video id="webcam" autoplay playsinline muted></video>
     </div>
+    <!-- Close button to stop capture/detection -->
+    <button class="close-button" onclick="stopCapture()">×</button>
+    <!-- Instruction text (also used to display feedback) -->
+    <div class="circle-instruction" id="info-text">Please blink to start.</div>
   </div>
+
+  <!-- Hidden canvases for internal use (drawing bounding boxes and landmarks) -->
+  <canvas id="bounding-box" width="640" height="480"></canvas>
+  <canvas id="facial-landmarks" width="640" height="480"></canvas>
+  <!-- Hidden download link for the captured snapshot -->
+  <a id="download-photo" href="#" download="snapshot.png">Download Snapshot</a>
 
   <script>
-    // --- Dynamic Resize Logic ---
-    function adjustVideoSize() {
-      const container = document.getElementById('video-container');
-      // Use 90% of the window's width or 640px (whichever is smaller)
-      const width = Math.min(window.innerWidth * 0.9, 640);
-      // Maintain a 4:3 aspect ratio (height = width * 3/4)
-      container.style.width = width + 'px';
-      container.style.height = (width * 3 / 4) + 'px';
-    }
-    
-    // Adjust size on load, resize, and orientation change
-    window.addEventListener('resize', adjustVideoSize);
-    window.addEventListener('orientationchange', adjustVideoSize);
-    document.addEventListener('DOMContentLoaded', adjustVideoSize);
-
-    // --- Webcam and Face Detection Logic ---
+    // ----- Global Variables & Initialization -----
     const webcamElement = document.getElementById('webcam');
     const boundingBoxCanvas = document.getElementById('bounding-box');
     const boundingBoxCtx = boundingBoxCanvas.getContext('2d');
     const landmarksCanvas = document.getElementById('facial-landmarks');
     const landmarksCtx = landmarksCanvas.getContext('2d');
-    // Initialize Webcam Easy; you can also pass custom constraints if needed
-    const webcam = new Webcam(webcamElement, 'user', landmarksCanvas);
+    // Using jQuery for the info text and download link
+    const infoText = $("#info-text");
+    const downloadPhotoLink = $("#download-photo");
 
+    // Initialize Webcam Easy with the video element.
+    let webcam = new Webcam(webcamElement, 'user', landmarksCanvas);
+    let model = null;
+    let running = false;
+    let cameraFrame = null;
+    let timeout = null;
+
+    // Total time allowed for the liveliness test (in seconds)
+    const TOTAL_TIME = 30;
+    let remainingTime = TOTAL_TIME;
+    let countdownInterval = null;
+
+    // Application states:
+    // "waitingForBlink" → "waitingForHeadMovements" → "waitingForSmile" → "completed"
+    let currentStep = 'waitingForBlink';
+
+    // Head movement directions and sequence.
+    const headMovements = ['left', 'right', 'up', 'down', 'up-left', 'up-right', 'down-left', 'down-right'];
+    let headMovementSequence = [];
+    let currentHeadMovementIndex = 0;
+
+    // Flag to check if initial centering has been completed
+    let initialCentered = false;
+
+    // Emoji mapping for instructions.
     const emojiMapping = {
       blink: '👀',
       smile: '😊',
@@ -193,116 +205,40 @@
       'down-right': '↘️'
     };
 
-    let model = null;
-    let cameraFrame = null;
-    let running = false;
-    let timeout = null;
-    
-    // Total time allowed for the liveliness test (in seconds)
-    const TOTAL_TIME = 30;
-    let remainingTime = TOTAL_TIME;
-    let countdownInterval = null;
-    
-    // Application states: "waitingForBlink" → "waitingForHeadMovements" → "waitingForSmile" → "completed"
-    let currentStep = 'waitingForBlink';
+    // ----- Functions for Starting & Stopping -----
 
-    // All possible head movement directions
-    const headMovements = ['left', 'right', 'up', 'down', 'up-left', 'up-right', 'down-left', 'down-right'];
-    // The sequence of exactly 5 head movements
-    let headMovementSequence = [];
-    let currentHeadMovementIndex = 0;
-
-    // DOM Elements
-    const startCaptureBtn = $("#start-capture");
-    const captureRunningBtn = $("#capture-running");
-    const webcamSwitch = $("#webcam-switch");
-    const webcamCaption = $("#webcam-caption");
-    const infoText = $("#info-text");
-    const downloadPhotoLink = $("#download-photo");
-
-    // Event Listeners
-    startCaptureBtn.click(function () {
-      startCapture();
-    });
-
-    webcamSwitch.change(function () {
-      if (this.checked) {
-        startWebcam();
-      } else {      
-        stopCapture();
-        webcam.stop();
-        webcamCaption.text('Click to Start Camera');
-        $("#video-container").hide();
-        console.log("Webcam stopped");
-      }        
-    });
-
-    // Start Webcam Function
-    async function startWebcam() {
+    // Start webcam and then start the detection capture.
+    async function startWebcamAndCapture() {
       try {
-        // Optionally, set explicit constraints here if needed.
-        // For example:
-        // const constraints = { video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } };
-        // await webcam.start(constraints);
         await webcam.start();
-        webcamCaption.text('Click to Stop Camera');
-        $("#video-container").show();
         console.log("Webcam started");
+        startCapture();
       } catch (err) {
         console.error("Error starting webcam:", err);
         alert("Could not access the webcam. Please allow camera access.");
-        webcamSwitch.prop('checked', false);
       }
     }
 
-    // Stop Capture Function
-    async function stopCapture() {
-      if (running) {
-        captureRunningBtn.hide();
-        startCaptureBtn.show();
-        infoText.hide();
-        running = false;
-        if (cameraFrame != null) {
-          cancelAnimationFrame(cameraFrame);
-        }
-        // Clear the canvases
-        boundingBoxCtx.clearRect(0, 0, boundingBoxCanvas.width, boundingBoxCanvas.height);
-        landmarksCtx.clearRect(0, 0, landmarksCanvas.width, landmarksCanvas.height);
-      }
-      // Clear any active countdown timer
-      clearInterval(countdownInterval);
-      remainingTime = TOTAL_TIME;
-    }
-
-    // Start Capture Function
+    // Start the capture process: load the face-landmarks model and begin detection.
     async function startCapture() {
-      captureRunningBtn.show();
-      startCaptureBtn.hide();
-      infoText.text('Please blink to capture.');
-      infoText.show();
       currentStep = 'waitingForBlink';
-      
-      // Reset head movement sequence and timer
+      initialCentered = false;
       headMovementSequence = [];
       currentHeadMovementIndex = 0;
       downloadPhotoLink.hide();
 
       try {
-        // Load the MediaPipe Facemesh model
         model = await faceLandmarksDetection.load(
           faceLandmarksDetection.SupportedPackages.mediapipeFacemesh,
           { maxFaces: 1 }
         );
         running = true;
         cameraFrame = requestAnimationFrame(detectKeyPoints);
-
-        // Set a fallback timeout (in case no blink is detected)
         timeout = setTimeout(() => {
           alert("Capture timed out. Please try again.");
           stopCapture();
           webcam.stop();
-        }, TOTAL_TIME * 1000);                
-
+        }, TOTAL_TIME * 1000);
       } catch (err) {
         console.error("Error loading the model:", err);
         alert("Failed to load the face detection model.");
@@ -310,35 +246,29 @@
       }
     }
 
-    function getCurrentInstruction() {
-      switch (currentStep) {
-        case 'waitingForBlink':
-          return `Please blink ${emojiMapping.blink}`;
-        case 'waitingForHeadMovements':
-          const movement = headMovementSequence[currentHeadMovementIndex];
-          return movement
-            ? `Please move your head ${movement} ${emojiMapping[movement]}`
-            : 'Please move your head.';
-        case 'waitingForSmile':
-          return `Please smile ${emojiMapping.smile}`;
-        default:
-          return "";
+    // Stop the capture/detection process.
+    function stopCapture() {
+      if (running) {
+        running = false;
+        if (cameraFrame != null) {
+          cancelAnimationFrame(cameraFrame);
+        }
+        boundingBoxCtx.clearRect(0, 0, boundingBoxCanvas.width, boundingBoxCanvas.height);
+        landmarksCtx.clearRect(0, 0, landmarksCanvas.width, landmarksCanvas.height);
       }
+      clearInterval(countdownInterval);
+      remainingTime = TOTAL_TIME;
+      initialCentered = false;
     }
 
-    // Initialize TensorFlow.js Backend
-    async function setupFaceLandmarkDetection() {
-      try {
-        await tf.setBackend('wasm');
-        await tf.ready();
-        console.log("TensorFlow.js backend 'wasm' is ready.");
-      } catch (err) {
-        console.error("Error setting up TensorFlow.js backend:", err);
-        alert("Failed to initialize TensorFlow.js backend.");
-      }
+    // Stop the webcam (called by the close button).
+    function stopWebcam() {
+      webcam.stop();
+      infoText.text("Webcam stopped.");
     }
 
-    // Detect Key Points Function
+    // ----- Detection & Drawing Functions -----
+
     async function detectKeyPoints() {
       if (!running) return;
 
@@ -349,7 +279,7 @@
         predictIrises: false
       });
 
-      // Clear previous drawings
+      // Clear previous drawings on hidden canvases.
       boundingBoxCtx.clearRect(0, 0, boundingBoxCanvas.width, boundingBoxCanvas.height);
       landmarksCtx.clearRect(0, 0, landmarksCanvas.width, landmarksCanvas.height);
 
@@ -357,7 +287,7 @@
         const prediction = predictions[0];
         const keypoints = prediction.scaledMesh;
 
-        // Draw bounding box
+        // Draw bounding box (for debugging, on hidden canvas)
         const start = prediction.boundingBox.topLeft;
         const end = prediction.boundingBox.bottomRight;
         const size = [end[0] - start[0], end[1] - start[1]];
@@ -365,36 +295,43 @@
         boundingBoxCtx.lineWidth = 2;
         boundingBoxCtx.strokeRect(start[0], start[1], size[0], size[1]);
 
-        // Draw facial landmarks
+        // Ensure the face is centered before proceeding.
+        if (!initialCentered) {
+          if (!isFaceCentered(keypoints)) {
+            infoText.text("Please put your face in the center.");
+            return requestAnimationFrame(detectKeyPoints);
+          } else {
+            initialCentered = true;
+            console.log("Face is centered.");
+          }
+        }
+
+        // Draw facial landmarks on the hidden canvas.
         drawFacialLandmarks(keypoints, currentStep);
 
-        // If in the head movement step, display the arrow indicator
+        // If waiting for head movements, draw the arrow indicator.
         if (currentStep === 'waitingForHeadMovements') {
           const currentDirection = headMovementSequence[currentHeadMovementIndex];
           drawHeadIndicator(currentDirection);
         }
 
-        // Process current state
+        // Process current state.
         switch (currentStep) {
           case 'waitingForBlink':
             if (detectBlink(keypoints)) {
               console.log('Blink detected!');
-              // Generate a sequence of 5 random head movements
+              // Generate a fixed sequence of 5 random head movements.
               for (let i = 0; i < 5; i++) {
-                headMovementSequence.push(
-                  headMovements[Math.floor(Math.random() * headMovements.length)]
-                );
+                headMovementSequence.push(headMovements[Math.floor(Math.random() * headMovements.length)]);
               }
               console.log("Head Movement Sequence:", headMovementSequence);
               currentStep = 'waitingForHeadMovements';
 
-              // Start the 30-second countdown
+              // Start a countdown timer.
               remainingTime = TOTAL_TIME;
               countdownInterval = setInterval(() => {
                 remainingTime--;
-                infoText.text(
-                  `Time remaining: ${remainingTime} seconds. ${getCurrentInstruction()}`
-                );
+                infoText.text(`Time remaining: ${remainingTime} seconds. ${getCurrentInstruction()}`);
                 if (remainingTime <= 0) {
                   clearInterval(countdownInterval);
                   alert("Capture timed out. Please try again.");
@@ -402,32 +339,24 @@
                   webcam.stop();
                 }
               }, 1000);
-
-              infoText.text(
-                `Time remaining: ${remainingTime} seconds. ${getCurrentInstruction()}`
-              );
+              infoText.text(`Time remaining: ${remainingTime} seconds. ${getCurrentInstruction()}`);
             }
             break;
-
-          case 'waitingForHeadMovements': {
+          case 'waitingForHeadMovements':
+            {
               const currentDirection = headMovementSequence[currentHeadMovementIndex];
               if (detectHeadMovement(keypoints, currentDirection)) {
                 console.log(`Head movement (${currentDirection}) detected!`);
                 currentHeadMovementIndex++;
                 if (currentHeadMovementIndex < headMovementSequence.length) {
-                  infoText.text(
-                    `Time remaining: ${remainingTime} seconds. Good! Next, please move your head ${headMovementSequence[currentHeadMovementIndex]}.`
-                  );
+                  infoText.text(`Time remaining: ${remainingTime} seconds. Good! Next, please move your head ${headMovementSequence[currentHeadMovementIndex]}.`);
                 } else {
-                  infoText.text(
-                    `Time remaining: ${remainingTime} seconds. All head movements detected! Now, please smile.`
-                  );
+                  infoText.text(`Time remaining: ${remainingTime} seconds. All head movements detected! Now, please smile.`);
                   currentStep = 'waitingForSmile';
                 }
               }
             }
             break;
-
           case 'waitingForSmile':
             if (detectSmile(keypoints)) {
               console.log('Smile detected!');
@@ -444,18 +373,21 @@
               webcamElement.style.display = "none";
               console.log("Webcam closed after snapshot capture.");
 
-              // Send the snapshot to the mobile container (React Native WebView)
-              const urlParams = new URLSearchParams(window.location.search);
-              const id = urlParams.get('id');
-              const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-              if (!id || !uuidRegex.test(id)) {
-                alert("Access denied!");
-              } else {
-                const payload = { snapshot: picture, id: id };
-                if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
-                  window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+              // Post message to parent window if available.
+              if (window.parent) {
+                const urlParams = new URLSearchParams(window.location.search);
+                const id = urlParams.get('id');
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                if (!id || !uuidRegex.test(id)) {
+                  alert("Access denied!");
                 } else {
-                  console.warn("Not running inside a ReactNativeWebView. This page is optimized for mobile/tablet use.");
+                  const payload = { snapshot: picture, id: id };
+                  if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
+                    window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+                  } else if (window.parent && typeof window.parent.postMessage === 'function') {
+                    // Replace the target origin with your production URL.
+                    window.parent.postMessage(payload, "https://xwallet.tradetcx.com/kyc");
+                  }
                 }
               }
             }
@@ -470,17 +402,44 @@
       cameraFrame = requestAnimationFrame(detectKeyPoints);
     }
 
-    // Draw Head Movement Indicator Function
+    function getCurrentInstruction() {
+      switch (currentStep) {
+        case 'waitingForBlink':
+          return `Please blink ${emojiMapping.blink}`;
+        case 'waitingForHeadMovements':
+          const movement = headMovementSequence[currentHeadMovementIndex];
+          return movement ? `Please move your head ${movement} ${emojiMapping[movement]}` : 'Please move your head.';
+        case 'waitingForSmile':
+          return `Please smile ${emojiMapping.smile}`;
+        default:
+          return "";
+      }
+    }
+
+    function isFaceCentered(keypoints) {
+      // Use the 'center' check from detectHeadMovement.
+      return detectHeadMovement(keypoints, 'center');
+    }
+
+    async function setupFaceLandmarkDetection() {
+      try {
+        await tf.setBackend('wasm');
+        await tf.ready();
+        console.log("TensorFlow.js backend 'wasm' is ready.");
+      } catch (err) {
+        console.error("Error setting up TensorFlow.js backend:", err);
+        alert("Failed to initialize TensorFlow.js backend.");
+      }
+    }
+
     function drawHeadIndicator(direction) {
       landmarksCtx.save();
       landmarksCtx.strokeStyle = "yellow";
       landmarksCtx.fillStyle = "yellow";
       landmarksCtx.lineWidth = 4;
-      
       const centerX = landmarksCanvas.width / 2;
       const centerY = landmarksCanvas.height / 2;
       const arrowLength = 40;
-      
       landmarksCtx.beginPath();
       switch(direction) {
         case 'left':
@@ -546,7 +505,6 @@
       landmarksCtx.restore();
     }
 
-    // Blink Detection
     let blinkFrameCount = 0;
     function detectBlink(keypoints) {
       const leftEyeIndices = { top: 386, bottom: 374, left: 263, right: 362 };
@@ -554,25 +512,20 @@
       const leftEAR = calculateEAR(keypoints, leftEyeIndices);
       const rightEAR = calculateEAR(keypoints, rightEyeIndices);
       console.log(`Left EAR: ${leftEAR.toFixed(3)}\tRight EAR: ${rightEAR.toFixed(3)}`);
-      
       const EAR_THRESHOLD = 0.5;
       const REQUIRED_CONSECUTIVE_FRAMES = 3;
-      
       if (leftEAR < EAR_THRESHOLD && rightEAR < EAR_THRESHOLD) {
         blinkFrameCount++;
       } else {
         blinkFrameCount = 0;
       }
-      
       if (blinkFrameCount >= REQUIRED_CONSECUTIVE_FRAMES) {
         blinkFrameCount = 0;
         return true;
       }
-      
       return false;
     }
 
-    // Smile Detection
     function detectSmile(keypoints) {
       const mouth = { left: 61, right: 291, top: 13, bottom: 14 };
       const horizontalDist = euclideanDistance(
@@ -589,7 +542,6 @@
       return mar > MAR_THRESHOLD;
     }
 
-    // Head Movement Detection
     function detectHeadMovement(keypoints, direction) {
       const noseTipIndex = 1;
       const nose = keypoints[noseTipIndex];
@@ -600,7 +552,6 @@
       const THRESHOLD_X = 30;
       const THRESHOLD_Y = 20;
       let moved = false;
-      
       switch(direction) {
         case 'left':
           if (noseX < frameCenterX - THRESHOLD_X) moved = true;
@@ -634,32 +585,21 @@
         default:
           break;
       }
-      
-      console.log(
-        `Nose: (${noseX.toFixed(1)}, ${noseY.toFixed(1)}) | Target: ${direction} | Moved: ${moved}`
-      );
+      console.log(`Nose: (${noseX.toFixed(1)}, ${noseY.toFixed(1)}) | Target: ${direction} | Moved: ${moved}`);
       return moved;
     }
 
-    // Draw Facial Landmarks
     function drawFacialLandmarks(keypoints, step) {
       landmarksCtx.lineWidth = 2;
       landmarksCtx.strokeStyle = "white";
       landmarksCtx.fillStyle = "white";
-
       const eyes = {
         left: [33, 7, 163, 144, 145, 153, 154, 155, 133, 33],
         right: [263, 249, 390, 373, 374, 380, 381, 382, 362, 263]
       };
       const mouth = {
-        outer: [
-          61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 
-          291, 308, 324, 318, 402, 317, 14, 87, 178, 88, 
-          95, 185, 40, 39, 37, 0, 267, 269, 270, 409, 
-          415, 310, 311, 312, 13, 82, 81, 80, 191, 78, 95
-        ]
+        outer: [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95, 185, 40, 39, 37, 0, 267, 269, 270, 409, 415, 310, 311, 312, 13, 82, 81, 80, 191, 78, 95]
       };
-
       function drawLines(landmarkIndices) {
         landmarksCtx.beginPath();
         for (let i = 0; i < landmarkIndices.length; i++) {
@@ -672,29 +612,20 @@
         }
         landmarksCtx.stroke();
       }
-
-      // Draw eyes
+      // Draw eyes.
       drawLines(eyes.left);
       drawLines(eyes.right);
-
-      // Draw face outline during head movement steps
+      // Draw face outline when waiting for head movements.
       if (step === 'waitingForHeadMovements') {
-        const faceOutline = [
-          10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 
-          361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 
-          176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 
-          162, 21, 54, 103, 67, 109, 10
-        ];
+        const faceOutline = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109, 10];
         drawLines(faceOutline);
       }
-
-      // Draw mouth when waiting for smile
+      // Draw mouth when waiting for smile.
       if (step === 'waitingForSmile') {
         drawLines(mouth.outer);
       }
     }
 
-    // Calculate Eye Aspect Ratio (EAR)
     function calculateEAR(keypoints, eyeIndices) {
       const a = euclideanDistance(
         keypoints[eyeIndices.top][0], keypoints[eyeIndices.top][1],
@@ -707,17 +638,16 @@
       return a / (2.0 * b);
     }
 
-    // Euclidean Distance
     function euclideanDistance(x1, y1, x2, y2) {
       return Math.sqrt(Math.pow((x1 - x2), 2) + Math.pow((y1 - y2), 2));
     }
 
-    // Initialize the application
+    // ----- Start-up -----
     async function main() {
       await setupFaceLandmarkDetection();
+      startWebcamAndCapture();
     }
     main();
   </script>
-
 </body>
 </html>
