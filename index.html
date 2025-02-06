@@ -183,8 +183,8 @@
     // "waitingForBlink" → "waitingForHeadMovements" → "waitingForSmile" → "completed"
     let currentStep = 'waitingForBlink';
 
-    // Head movement directions and sequence.
-    const headMovements = ['left', 'right', 'up', 'down', 'up-left', 'up-right', 'down-left', 'down-right'];
+    // Head movement directions and sequence.  'up-left', 'up-right', 'down-left', 'down-right'
+    const headMovements = ['left', 'right', 'up', 'down'];
     let headMovementSequence = [];
     let currentHeadMovementIndex = 0;
 
