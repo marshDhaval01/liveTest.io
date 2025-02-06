@@ -57,6 +57,11 @@
       font-size: 18px;
       margin-bottom: 15px;
     }
+    #face-guidance {
+      font-size: 16px;
+      margin-bottom: 15px;
+      color: #333;
+    }
     #instruction-text {
       font-size: 18px;
       margin-top: 15px;
@@ -146,8 +151,12 @@
   <!-- Heading -->
   <h1>XWallet Liveliness</h1>
 
+
+
   <!-- Timer (placed just below the title) -->
   <div id="timer">Time remaining: 30 seconds</div>
+
+  <div id="face-guidance">Align your face with the circle and follow instructions.</div>
 
   <!-- Circular UI Container with Video -->
   <div class="circle-container">
@@ -177,6 +186,7 @@
 
     // Using jQuery for timer and instruction texts, and the download link.
     const timerText = $("#timer");
+    const facecenterText = $("#facecenter");
     const instructionText = $("#instruction-text");
     const downloadPhotoLink = $("#download-photo");
 
@@ -208,11 +218,7 @@
       left: '⬅️',
       right: '➡️',
       up: '⬆️',
-      down: '⬇️',
-      'up-left': '↖️',
-      'up-right': '↗️',
-      'down-left': '↙️',
-      'down-right': '↘️'
+      down: '⬇️'
     };
 
     // ----- Functions for Starting & Stopping -----
@@ -235,6 +241,8 @@
       headMovementSequence = [];
       currentHeadMovementIndex = 0;
       downloadPhotoLink.hide();
+
+
 
       try {
         model = await faceLandmarksDetection.load(
@@ -318,7 +326,7 @@
             if (detectBlink(keypoints)) {
               console.log('Blink detected!');
               // Generate a fixed sequence of 5 random head movements.
-              for (let i = 0; i < 5; i++) {
+              for (let i = 0; i < 7; i++) {
                 headMovementSequence.push(headMovements[Math.floor(Math.random() * headMovements.length)]);
               }
               console.log("Head Movement Sequence:", headMovementSequence);
@@ -362,6 +370,7 @@
             if (detectSmile(keypoints)) {
               console.log('Smile detected!');
               timerText.text(''); // Clear timer once complete
+              facecenterText.text(''); // Clear face center text once complete
               instructionText.text('Smile detected! Capture completed.');
               clearTimeout(timeout);
               clearInterval(countdownInterval);
