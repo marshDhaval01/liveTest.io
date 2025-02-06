@@ -157,14 +157,43 @@
 
   <script>
     // --- Dynamic Resize Logic ---
+    // function adjustVideoSize() {
+    //   const container = document.getElementById('video-container');
+    //   // Use 90% of the window's width or 640px (whichever is smaller)
+    //   const width = Math.min(window.innerWidth * 0.9, 640);
+    //   // Maintain a 4:3 aspect ratio (height = width * 3/4)
+    //   container.style.width = width + 'px';
+    //   container.style.height = (width * 3 / 4) + 'px';
+    // }
+
+
     function adjustVideoSize() {
-      const container = document.getElementById('video-container');
-      // Use 90% of the window's width or 640px (whichever is smaller)
-      const width = Math.min(window.innerWidth * 0.9, 640);
-      // Maintain a 4:3 aspect ratio (height = width * 3/4)
-      container.style.width = width + 'px';
-      container.style.height = (width * 3 / 4) + 'px';
-    }
+  const container = document.getElementById('video-container');
+  // Use 90% of the window's width or 640px (whichever is smaller)
+  const width = Math.min(window.innerWidth * 0.9, 640);
+  // Maintain a 4:3 aspect ratio
+  const height = width * 3 / 4;
+  
+  // Update the container size
+  container.style.width = width + 'px';
+  container.style.height = height + 'px';
+
+  // Update the video element intrinsic dimensions
+  const video = document.getElementById('webcam');
+  video.setAttribute('width', width);
+  video.setAttribute('height', height);
+
+  // Update the bounding box canvas intrinsic dimensions
+  const boundingBoxCanvas = document.getElementById('bounding-box');
+  boundingBoxCanvas.setAttribute('width', width);
+  boundingBoxCanvas.setAttribute('height', height);
+
+  // Update the facial landmarks canvas intrinsic dimensions
+  const landmarksCanvas = document.getElementById('facial-landmarks');
+  landmarksCanvas.setAttribute('width', width);
+  landmarksCanvas.setAttribute('height', height);
+}
+
     
     // Adjust size on load, resize, and orientation change
     window.addEventListener('resize', adjustVideoSize);
