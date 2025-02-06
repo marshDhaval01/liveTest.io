@@ -6,7 +6,6 @@
   
   <!-- Responsive Meta Tag for Mobile/Tablet -->
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-
   <!-- <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"> -->
 
   <script>
@@ -76,10 +75,9 @@
       margin: 10px;
     }
 
-    /* 
-      Responsive container for video and canvases:
-      - The container maintains a 4:3 aspect ratio.
-      - It has a maximum width of 640px, preserving the 640×480 coordinate system.
+    /* Responsive container for video and canvases:
+       - The container maintains a 4:3 aspect ratio.
+       - It has a maximum width of 640px.
     */
     #video-container {
       position: relative;
@@ -123,11 +121,25 @@
       color: #4CAF50;
       text-decoration: none;
     }
+
+    /* Orientation warning style */
+    #orientation-warning {
+      display: none;
+      text-align: center;
+      margin-top: 20px;
+      color: red;
+      font-size: 18px;
+    }
   </style>
 </head>
 <body>
 
   <h1>XWallet Liveliness</h1>
+
+  <!-- Orientation warning (visible only in landscape mode) -->
+  <div id="orientation-warning">
+    <p>This app is designed for portrait mode only. Please rotate your device.</p>
+  </div>
 
   <div id="webcam-control">
     <input type="checkbox" id="webcam-switch">
@@ -144,11 +156,7 @@
       <button id="start-capture" class="btn">
         <i class="fa fa-camera fa-fw"></i> Begin Liveliness
       </button>
-      <!-- <button id="capture-running" class="btn" style="display: none;">
-        <i class="fa fa-refresh fa-spin fa-fw"></i> Capturing...
-      </button> -->
       <span id="info-text" style="display: none;">Please blink to capture.</span>
-
       <div style="margin-top: 10px;">
         <a id="download-photo" href="#" download="snapshot.png">Download Snapshot</a>
       </div>
@@ -157,48 +165,55 @@
 
   <script>
     // --- Dynamic Resize Logic ---
-    // function adjustVideoSize() {
-    //   const container = document.getElementById('video-container');
-    //   // Use 90% of the window's width or 640px (whichever is smaller)
-    //   const width = Math.min(window.innerWidth * 0.9, 640);
-    //   // Maintain a 4:3 aspect ratio (height = width * 3/4)
-    //   container.style.width = width + 'px';
-    //   container.style.height = (width * 3 / 4) + 'px';
-    // }
-
-
     function adjustVideoSize() {
-  const container = document.getElementById('video-container');
-  // Use 90% of the window's width or 640px (whichever is smaller)
-  const width = Math.min(window.innerWidth * 0.9, 640);
-  // Maintain a 4:3 aspect ratio
-  const height = width * 3 / 4;
-  
-  // Update the container size
-  container.style.width = width + 'px';
-  container.style.height = height + 'px';
+      const container = document.getElementById('video-container');
+      // Use 90% of the window's width or 640px (whichever is smaller)
+      const width = Math.min(window.innerWidth * 0.9, 640);
+      // Maintain a 4:3 aspect ratio
+      const height = width * 3 / 4;
+      
+      // Update the container size
+      container.style.width = width + 'px';
+      container.style.height = height + 'px';
 
-  // Update the video element intrinsic dimensions
-  const video = document.getElementById('webcam');
-  video.setAttribute('width', width);
-  video.setAttribute('height', height);
+      // Update the video element intrinsic dimensions
+      const video = document.getElementById('webcam');
+      video.setAttribute('width', width);
+      video.setAttribute('height', height);
 
-  // Update the bounding box canvas intrinsic dimensions
-  const boundingBoxCanvas = document.getElementById('bounding-box');
-  boundingBoxCanvas.setAttribute('width', width);
-  boundingBoxCanvas.setAttribute('height', height);
+      // Update the bounding box canvas intrinsic dimensions
+      const boundingBoxCanvas = document.getElementById('bounding-box');
+      boundingBoxCanvas.setAttribute('width', width);
+      boundingBoxCanvas.setAttribute('height', height);
 
-  // Update the facial landmarks canvas intrinsic dimensions
-  const landmarksCanvas = document.getElementById('facial-landmarks');
-  landmarksCanvas.setAttribute('width', width);
-  landmarksCanvas.setAttribute('height', height);
-}
-
+      // Update the facial landmarks canvas intrinsic dimensions
+      const landmarksCanvas = document.getElementById('facial-landmarks');
+      landmarksCanvas.setAttribute('width', width);
+      landmarksCanvas.setAttribute('height', height);
+    }
     
     // Adjust size on load, resize, and orientation change
     window.addEventListener('resize', adjustVideoSize);
     window.addEventListener('orientationchange', adjustVideoSize);
     document.addEventListener('DOMContentLoaded', adjustVideoSize);
+
+    // --- Orientation Check ---
+    function checkOrientation() {
+      if (window.innerWidth > window.innerHeight) {
+        // Landscape: show warning and hide main content
+        document.getElementById("orientation-warning").style.display = "block";
+        document.getElementById("video-container").style.display = "none";
+        document.getElementById("webcam-control").style.display = "none";
+      } else {
+        // Portrait: hide warning and show main content
+        document.getElementById("orientation-warning").style.display = "none";
+        document.getElementById("video-container").style.display = "block";
+        document.getElementById("webcam-control").style.display = "block";
+      }
+    }
+    window.addEventListener("resize", checkOrientation);
+    window.addEventListener("orientationchange", checkOrientation);
+    document.addEventListener("DOMContentLoaded", checkOrientation);
 
     // --- Webcam and Face Detection Logic ---
     const webcamElement = document.getElementById('webcam');
@@ -206,7 +221,7 @@
     const boundingBoxCtx = boundingBoxCanvas.getContext('2d');
     const landmarksCanvas = document.getElementById('facial-landmarks');
     const landmarksCtx = landmarksCanvas.getContext('2d');
-    // Initialize Webcam Easy; you can also pass custom constraints if needed
+    // Initialize Webcam Easy
     const webcam = new Webcam(webcamElement, 'user', landmarksCanvas);
 
     const emojiMapping = {
@@ -241,12 +256,11 @@
     let headMovementSequence = [];
     let currentHeadMovementIndex = 0;
 
-    // Instead of forcing the user to center their face, we capture the initial nose position once a face is detected.
+    // Instead of forcing the user to center their face, capture the initial nose position when a face is detected.
     let initialNosePosition = null;
 
     // DOM Elements
     const startCaptureBtn = $("#start-capture");
-    // const captureRunningBtn = $("#capture-running"); // (unused in this version)
     const webcamSwitch = $("#webcam-switch");
     const webcamCaption = $("#webcam-caption");
     const infoText = $("#info-text");
@@ -286,7 +300,6 @@
     // Stop Capture Function
     async function stopCapture() {
       if (running) {
-        // Reset UI elements
         startCaptureBtn.show();
         infoText.hide();
         running = false;
@@ -300,26 +313,21 @@
       // Clear any active countdown timer
       clearInterval(countdownInterval);
       remainingTime = TOTAL_TIME;
-      // Reset the initial nose position for next capture
       initialNosePosition = null;
     }
 
     // Start Capture Function
     async function startCapture() {
-      // UI updates
-      // captureRunningBtn.show();  // (if you wish to show a “capturing” indicator)
       startCaptureBtn.hide();
       infoText.text('Please blink to capture.');
       infoText.show();
       currentStep = 'waitingForBlink';
-      // Reset baseline and head movement sequence
       initialNosePosition = null;
       headMovementSequence = [];
       currentHeadMovementIndex = 0;
       downloadPhotoLink.hide();
 
       try {
-        // Load the MediaPipe Facemesh model
         model = await faceLandmarksDetection.load(
           faceLandmarksDetection.SupportedPackages.mediapipeFacemesh,
           { maxFaces: 1 }
@@ -327,7 +335,6 @@
         running = true;
         cameraFrame = requestAnimationFrame(detectKeyPoints);
 
-        // Set a fallback timeout (in case no blink is detected)
         timeout = setTimeout(() => {
           alert("Capture timed out. Please try again.");
           stopCapture();
@@ -341,7 +348,7 @@
       }
     }
 
-    // Get the current instruction text (for head movement, blink, smile)
+    // Get the current instruction text
     function getCurrentInstruction() {
       switch (currentStep) {
         case 'waitingForBlink':
@@ -370,7 +377,7 @@
       }
     }
 
-    // Main detection loop – note that we removed any check that forces the face to be centered.
+    // Main detection loop
     async function detectKeyPoints() {
       if (!running) return;
 
@@ -397,18 +404,16 @@
         boundingBoxCtx.lineWidth = 2;
         boundingBoxCtx.strokeRect(start[0], start[1], size[0], size[1]);
 
-        // Instead of asking the user to center the face, we capture the initial nose position
-        // once when in the 'waitingForBlink' step.
+        // Capture initial nose position when waiting for blink
         if (currentStep === 'waitingForBlink' && initialNosePosition === null) {
-          // Using the nose tip (keypoints index 1) as a baseline reference.
           initialNosePosition = { x: keypoints[1][0], y: keypoints[1][1] };
           console.log("Initial nose position set:", initialNosePosition);
         }
 
-        // Draw facial landmarks (for feedback)
+        // Draw facial landmarks
         drawFacialLandmarks(keypoints, currentStep);
 
-        // If in the head movement step, display the arrow indicator based on the initial nose position.
+        // If in head movement step, draw the arrow indicator
         if (currentStep === 'waitingForHeadMovements') {
           const currentDirection = headMovementSequence[currentHeadMovementIndex];
           drawHeadIndicator(currentDirection);
@@ -419,7 +424,6 @@
           case 'waitingForBlink':
             if (detectBlink(keypoints)) {
               console.log('Blink detected!');
-              // Generate a sequence of 5 random head movements
               for (let i = 0; i < 5; i++) {
                 headMovementSequence.push(
                   headMovements[Math.floor(Math.random() * headMovements.length)]
@@ -428,7 +432,6 @@
               console.log("Head Movement Sequence:", headMovementSequence);
               currentStep = 'waitingForHeadMovements';
 
-              // Start the 30-second countdown
               remainingTime = TOTAL_TIME;
               countdownInterval = setInterval(() => {
                 remainingTime--;
@@ -484,7 +487,6 @@
               webcamElement.style.display = "none";
               console.log("Webcam closed after snapshot capture.");
 
-              // Send the snapshot to the mobile container (React Native WebView)
               const urlParams = new URLSearchParams(window.location.search);
               const id = urlParams.get('id');
               const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -510,13 +512,12 @@
       cameraFrame = requestAnimationFrame(detectKeyPoints);
     }
 
-    // Update head movement detection to use the initial nose position as baseline.
+    // Update head movement detection using the initial nose position as baseline.
     function detectHeadMovement(keypoints, direction) {
       const noseTipIndex = 1;
       const nose = keypoints[noseTipIndex];
       const noseX = nose[0];
       const noseY = nose[1];
-      // Use the initial nose position if available; otherwise fall back to the canvas center.
       let baselineX = landmarksCanvas.width / 2;
       let baselineY = landmarksCanvas.height / 2;
       if (initialNosePosition) {
@@ -562,7 +563,7 @@
       return moved;
     }
 
-    // Update the head movement indicator so that its base is the initial nose position.
+    // Update the head movement indicator so its base is the initial nose position.
     function drawHeadIndicator(direction) {
       landmarksCtx.save();
       landmarksCtx.strokeStyle = "yellow";
@@ -717,8 +718,7 @@
       drawLines(eyes.left);
       drawLines(eyes.right);
 
-      // Optionally, during head movement steps, you can also draw an outline
-      // (this code remains unchanged)
+      // Optionally, during head movement steps, draw a face outline
       if (step === 'waitingForHeadMovements') {
         const faceOutline = [
           10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 
@@ -758,6 +758,13 @@
       await setupFaceLandmarkDetection();
     }
     main();
+
+    // Optional: Attempt to lock the screen orientation (may require user gesture/fullscreen)
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('portrait').catch(function(error) {
+        console.warn('Orientation lock failed:', error);
+      });
+    }
   </script>
 
 </body>
