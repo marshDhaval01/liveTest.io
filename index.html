@@ -221,7 +221,9 @@
     const downloadPhotoLink = $("#download-photo");
   
     // Initialize Webcam Easy with lower resolution constraints.
-    let webcam = new Webcam(webcamElement, 'user', landmarksCanvas, { width: 640, height: 480 });
+    // let webcam = new Webcam(webcamElement, 'user', landmarksCanvas, { width: 640, height: 480 });
+    let webcam = new Webcam(webcamElement, 'user', landmarksCanvas);
+
     let model = null;
     let running = false;
     let cameraFrame = null;
@@ -399,12 +401,12 @@
           case 'waitingForSmile':
             if (detectSmile(keypoints)) {
               console.log('Smile detected!');
-              playTingSound();
               instructionText.text('Smile detected! Capture completed.');
               let picture = webcam.snap();
               downloadPhotoLink.attr('href', picture);
               downloadPhotoLink.show();
               instructionText.text('Capture completed! You can download your snapshot.');
+              playTingSound();
               currentStep = 'completed';
               stopCapture();
               webcam.stop();
