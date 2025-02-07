@@ -154,7 +154,7 @@
 
 
   <!-- Timer (placed just below the title) -->
-  <div id="timer">Time remaining: 30 seconds</div>
+  <!-- <div id="timer">Time remaining: 30 seconds</div> -->
 
   <div id="face-guidance">Align your face with the circle and follow instructions.</div>
 
@@ -251,11 +251,11 @@
         );
         running = true;
         cameraFrame = requestAnimationFrame(detectKeyPoints);
-        timeout = setTimeout(() => {
-          alert("Capture timed out. Please try again.");
-          stopCapture();
-          webcam.stop();
-        }, TOTAL_TIME * 1000);
+        // timeout = setTimeout(() => {
+        //   alert("Capture timed out. Please try again.");
+        //   stopCapture();
+        //   webcam.stop();
+        // }, TOTAL_TIME * 1000);
       } catch (err) {
         console.error("Error loading the model:", err);
         alert("Failed to load the face detection model.");
@@ -331,22 +331,24 @@
               }
               console.log("Head Movement Sequence:", headMovementSequence);
               currentStep = 'waitingForHeadMovements';
+              instructionText.text(getCurrentInstruction());
+
 
               // Start a countdown timer.
-              remainingTime = TOTAL_TIME;
-              timerText.text(`Time remaining: ${remainingTime} seconds`);
-              instructionText.text(getCurrentInstruction());
-              countdownInterval = setInterval(() => {
-                remainingTime--;
-                timerText.text(`Time remaining: ${remainingTime} seconds`);
-                instructionText.text(getCurrentInstruction());
-                if (remainingTime <= 0) {
-                  clearInterval(countdownInterval);
-                  alert("Capture timed out. Please try again.");
-                  stopCapture();
-                  webcam.stop();
-                }
-              }, 1000);
+              // remainingTime = TOTAL_TIME;
+              // timerText.text(`Time remaining: ${remainingTime} seconds`);
+              // instructionText.text(getCurrentInstruction());
+              // countdownInterval = setInterval(() => {
+              //   remainingTime--;
+              //   timerText.text(`Time remaining: ${remainingTime} seconds`);
+              //   instructionText.text(getCurrentInstruction());
+              //   if (remainingTime <= 0) {
+              //     clearInterval(countdownInterval);
+              //     alert("Capture timed out. Please try again.");
+              //     stopCapture();
+              //     webcam.stop();
+              //   }
+              // }, 1000);
             }
             break;
           case 'waitingForHeadMovements':
@@ -356,10 +358,10 @@
                 console.log(`Head movement (${currentDirection}) detected!`);
                 currentHeadMovementIndex++;
                 if (currentHeadMovementIndex < headMovementSequence.length) {
-                  timerText.text(`Time remaining: ${remainingTime} seconds`);
+                  // timerText.text(`Time remaining: ${remainingTime} seconds`);
                   instructionText.text(`Good! Next, please move your head ${headMovementSequence[currentHeadMovementIndex]} ${emojiMapping[headMovementSequence[currentHeadMovementIndex]]}`);
                 } else {
-                  timerText.text(`Time remaining: ${remainingTime} seconds`);
+                  // timerText.text(`Time remaining: ${remainingTime} seconds`);
                   instructionText.text(`All head movements detected! Now, please smile ${emojiMapping.smile}`);
                   currentStep = 'waitingForSmile';
                 }
@@ -369,11 +371,11 @@
           case 'waitingForSmile':
             if (detectSmile(keypoints)) {
               console.log('Smile detected!');
-              timerText.text(''); // Clear timer once complete
+              // timerText.text(''); // Clear timer once complete
               facecenterText.text(''); // Clear face center text once complete
               instructionText.text('Smile detected! Capture completed.');
-              clearTimeout(timeout);
-              clearInterval(countdownInterval);
+              // clearTimeout(timeout);
+              // clearInterval(countdownInterval);
               stopCapture();
               let picture = webcam.snap();
               downloadPhotoLink.attr('href', picture);
