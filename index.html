@@ -545,40 +545,41 @@
       }
       return false;
     }
+  // Global variable to track consecutive frames with a detected smile
+let smileFrameCount = 0;
+// Adjusted parameters for improved smile detection
+const REQUIRED_CONSECUTIVE_SMILE_FRAMES = 5; // Increased for more robust detection
+const MAR_THRESHOLD = 0.086; // Increased threshold to reduce false positives
+
+function detectSmile(keypoints) {
+  const mouth = { left: 61, right: 291, top: 13, bottom: 14 };
+
+  const horizontalDist = euclideanDistance(
+    keypoints[mouth.left][0], keypoints[mouth.left][1],
+    keypoints[mouth.right][0], keypoints[mouth.right][1]
+  );
+  const verticalDist = euclideanDistance(
+    keypoints[mouth.top][0], keypoints[mouth.top][1],
+    keypoints[mouth.bottom][0], keypoints[mouth.bottom][1]
+  );
   
-    // Global variable to track consecutive frames with a detected smile
-    let smileFrameCount = 0;
-    // Number of consecutive frames required to confirm a smile
-    const REQUIRED_CONSECUTIVE_SMILE_FRAMES = 3;
-  
-    function detectSmile(keypoints) {
-      const mouth = { left: 61, right: 291, top: 13, bottom: 14 };
-      const horizontalDist = euclideanDistance(
-        keypoints[mouth.left][0], keypoints[mouth.left][1],
-        keypoints[mouth.right][0], keypoints[mouth.right][1]
-      );
-      const verticalDist = euclideanDistance(
-        keypoints[mouth.top][0], keypoints[mouth.top][1],
-        keypoints[mouth.bottom][0], keypoints[mouth.bottom][1]
-      );
-      const mar = verticalDist / horizontalDist;
-      console.log(`Mouth Aspect Ratio (MAR): ${mar.toFixed(3)}`);
-      const MAR_THRESHOLD = 0.067;
-  
-      if (mar > MAR_THRESHOLD) {
-        smileFrameCount++;
-      } else {
-        smileFrameCount = 0;
-      }
-  
-      if (smileFrameCount >= REQUIRED_CONSECUTIVE_SMILE_FRAMES) {
-        smileFrameCount = 0;
-        return true;
-      }
-  
-      return false;
-    }
-  
+  const mar = verticalDist / horizontalDist;
+  console.log(`Mouth Aspect Ratio (MAR): ${mar.toFixed(3)}`);
+
+  if (mar > MAR_THRESHOLD) {
+    smileFrameCount++;
+  } else {
+    smileFrameCount = 0;
+  }
+
+  if (smileFrameCount >= REQUIRED_CONSECUTIVE_SMILE_FRAMES) {
+    smileFrameCount = 0;
+    return true;
+  }
+
+  return false;
+}
+
     function detectHeadMovement(keypoints, direction) {
       const noseTipIndex = 1;
       const nose = keypoints[noseTipIndex];
