@@ -354,12 +354,20 @@
             if (detectBlink(keypoints)) {
               console.log('Blink detected!');
               playTingSound();
-              for (let i = 0; i < 7; i++) {
-                headMovementSequence.push(headMovements[Math.floor(Math.random() * headMovements.length)]);
-              }
-              console.log("Head Movement Sequence:", headMovementSequence);
-              currentStep = 'waitingForHeadMovements';
-              instructionText.text(getCurrentInstruction());
+              headMovementSequence = [];
+                    // Generate the first 6 random head movements from all options.
+                    for (let i = 0; i < 6; i++) {
+                      headMovementSequence.push(headMovements[Math.floor(Math.random() * headMovements.length)]);
+                    }
+
+                    // For the last movement, ensure it is not "left".
+                    const allowedLastMovements = headMovements.filter(direction => direction !== 'left');
+                    headMovementSequence.push(allowedLastMovements[Math.floor(Math.random() * allowedLastMovements.length)]);
+
+                    console.log("Head Movement Sequence:", headMovementSequence);
+                    currentStep = 'waitingForHeadMovements';
+
+                    instructionText.text(getCurrentInstruction());
             }
             break;
   
@@ -393,13 +401,12 @@
               console.log('Smile detected!');
               playTingSound();
               instructionText.text('Smile detected! Capture completed.');
-              
               let picture = webcam.snap();
               downloadPhotoLink.attr('href', picture);
               downloadPhotoLink.show();
               instructionText.text('Capture completed! You can download your snapshot.');
-              stopCapture();
               currentStep = 'completed';
+              stopCapture();
               webcam.stop();
               webcamElement.style.display = "none";
               console.log("Webcam closed after snapshot capture.");
@@ -424,7 +431,7 @@
           const movement = headMovementSequence[currentHeadMovementIndex];
           return movement ? `Please move your head ${movement} ${emojiMapping[movement]}` : 'Please move your head.';
         case 'waitingForCenter':
-          return `Please center your face.`;
+          return `Please move your head ${emojiMapping.left}`;
         case 'waitingForSmile':
           return `Please smile ${emojiMapping.smile}`;
         default:
