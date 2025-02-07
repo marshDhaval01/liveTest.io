@@ -38,6 +38,16 @@
   <!-- Webcam Easy -->
   <script src="https://unpkg.com/webcam-easy/dist/webcam-easy.min.js"></script>
 
+
+  <button id="startBtn">Start</button>
+  <script>
+  document.getElementById('startBtn').addEventListener('click', function() {
+    playTingSound(); // Play sound
+    // Resume AudioContext or call detection here if needed.
+  });
+  </script>
+
+
   <style>
     /* ----- Base Styles ----- */
     body {
