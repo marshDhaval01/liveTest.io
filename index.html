@@ -222,8 +222,6 @@
     const landmarksCtx = landmarksCanvas.getContext('2d');
   
     // Using jQuery for timer and instruction texts, and the download link.
-    const timerText = $("#timer");
-    const facecenterText = $("#facecenter");
     const instructionText = $("#instruction-text");
     const downloadPhotoLink = $("#download-photo");
   
@@ -232,7 +230,6 @@
     let model = null;
     let running = false;
     let cameraFrame = null;
-    let timeout = null;
   
     // Total time allowed for the liveliness test (in seconds)
     const TOTAL_TIME = 30;
@@ -240,7 +237,7 @@
     let countdownInterval = null;
   
     // Application states:
-    // "waitingForBlink" → "waitingForHeadMovements" → "waitingForSmile" → "completed"
+    // "waitingForBlink" → "waitingForHeadMovements" → "waitingForCenter" → "waitingForSmile" → "completed"
     let currentStep = 'waitingForBlink';
   
     // Head movement directions and sequence.
@@ -376,10 +373,21 @@
                 if (currentHeadMovementIndex < headMovementSequence.length) {
                   instructionText.text(`Good! Next, please move your head ${headMovementSequence[currentHeadMovementIndex]} ${emojiMapping[headMovementSequence[currentHeadMovementIndex]]}`);
                 } else {
-                  instructionText.text(`All head movements detected! Now, please smile ${emojiMapping.smile}`);
-                  currentStep = 'waitingForSmile';
+                  // All head movements are complete—ask the user to center their face.
+                  instructionText.text(`All head movements detected! Now, please center your face.`);
+                  currentStep = 'waitingForCenter';
                 }
               }
+            }
+            break;
+  
+          // New state: waiting for the face to be centered.
+          case 'waitingForCenter':
+            if (detectHeadMovement(keypoints, 'center')) {
+              console.log("Face is centered!");
+              playTingSound(); // Play ting sound for centering
+              instructionText.text(`Face centered! Now, please smile ${emojiMapping.smile}`);
+              currentStep = 'waitingForSmile';
             }
             break;
   
@@ -434,6 +442,8 @@
         case 'waitingForHeadMovements':
           const movement = headMovementSequence[currentHeadMovementIndex];
           return movement ? `Please move your head ${movement} ${emojiMapping[movement]}` : 'Please move your head.';
+        case 'waitingForCenter':
+          return `Please center your face.`;
         case 'waitingForSmile':
           return `Please smile ${emojiMapping.smile}`;
         default:
@@ -490,34 +500,6 @@
           landmarksCtx.moveTo(centerX, centerY + arrowLength);
           landmarksCtx.lineTo(centerX + 10, centerY + arrowLength - 10);
           break;
-        case 'up-left':
-          landmarksCtx.moveTo(centerX, centerY);
-          landmarksCtx.lineTo(centerX - arrowLength, centerY - arrowLength);
-          landmarksCtx.lineTo(centerX - arrowLength + 10, centerY - arrowLength + 10);
-          landmarksCtx.moveTo(centerX - arrowLength, centerY - arrowLength);
-          landmarksCtx.lineTo(centerX - arrowLength + 10, centerY - arrowLength - 10);
-          break;
-        case 'up-right':
-          landmarksCtx.moveTo(centerX, centerY);
-          landmarksCtx.lineTo(centerX + arrowLength, centerY - arrowLength);
-          landmarksCtx.lineTo(centerX + arrowLength - 10, centerY - arrowLength + 10);
-          landmarksCtx.moveTo(centerX + arrowLength, centerY - arrowLength);
-          landmarksCtx.lineTo(centerX + arrowLength - 10, centerY - arrowLength - 10);
-          break;
-        case 'down-left':
-          landmarksCtx.moveTo(centerX, centerY);
-          landmarksCtx.lineTo(centerX - arrowLength, centerY + arrowLength);
-          landmarksCtx.lineTo(centerX - arrowLength + 10, centerY + arrowLength - 10);
-          landmarksCtx.moveTo(centerX - arrowLength, centerY + arrowLength);
-          landmarksCtx.lineTo(centerX - arrowLength + 10, centerY + arrowLength + 10);
-          break;
-        case 'down-right':
-          landmarksCtx.moveTo(centerX, centerY);
-          landmarksCtx.lineTo(centerX + arrowLength, centerY + arrowLength);
-          landmarksCtx.lineTo(centerX + arrowLength - 10, centerY + arrowLength - 10);
-          landmarksCtx.moveTo(centerX + arrowLength, centerY + arrowLength);
-          landmarksCtx.lineTo(centerX + arrowLength - 10, centerY + arrowLength + 10);
-          break;
         default:
           break;
       }
@@ -545,41 +527,56 @@
       }
       return false;
     }
-  // Global variable to track consecutive frames with a detected smile
-let smileFrameCount = 0;
-// Adjusted parameters for improved smile detection
-const REQUIRED_CONSECUTIVE_SMILE_FRAMES = 5; // Increased for more robust detection
-const MAR_THRESHOLD = 0.086; // Increased threshold to reduce false positives
-
-function detectSmile(keypoints) {
-  const mouth = { left: 61, right: 291, top: 13, bottom: 14 };
-
-  const horizontalDist = euclideanDistance(
-    keypoints[mouth.left][0], keypoints[mouth.left][1],
-    keypoints[mouth.right][0], keypoints[mouth.right][1]
-  );
-  const verticalDist = euclideanDistance(
-    keypoints[mouth.top][0], keypoints[mouth.top][1],
-    keypoints[mouth.bottom][0], keypoints[mouth.bottom][1]
-  );
   
-  const mar = verticalDist / horizontalDist;
-  console.log(`Mouth Aspect Ratio (MAR): ${mar.toFixed(3)}`);
-
-  if (mar > MAR_THRESHOLD) {
-    smileFrameCount++;
-  } else {
-    smileFrameCount = 0;
-  }
-
-  if (smileFrameCount >= REQUIRED_CONSECUTIVE_SMILE_FRAMES) {
-    smileFrameCount = 0;
-    return true;
-  }
-
-  return false;
-}
-
+    // ----- Smile Detection Using Mouth Corner Lift -----
+    let smileFrameCount = 0;
+    // Number of consecutive frames required to confirm a smile
+    const REQUIRED_CONSECUTIVE_SMILE_FRAMES = 5;
+    // Threshold for normalized mouth corner lift (this value may need adjustment)
+    const SMILE_CORNER_LIFT_THRESHOLD = 0.02;
+  
+    function detectSmile(keypoints) {
+      // Define the landmark indices (assuming a face mesh model)
+      const leftCorner = keypoints[61];   // left mouth corner
+      const rightCorner = keypoints[291]; // right mouth corner
+      const topLip = keypoints[13];       // upper lip (approximate)
+      const bottomLip = keypoints[14];    // lower lip (approximate)
+  
+      // Calculate the mouth center as the midpoint between the top and bottom lip
+      const mouthCenterX = (topLip[0] + bottomLip[0]) / 2;
+      const mouthCenterY = (topLip[1] + bottomLip[1]) / 2;
+  
+      // Compute horizontal distance between mouth corners (used for normalization)
+      const horizontalDist = euclideanDistance(
+        leftCorner[0], leftCorner[1],
+        rightCorner[0], rightCorner[1]
+      );
+  
+      // In most coordinate systems (e.g., canvas), a smaller y-value indicates a higher position.
+      // So, if a mouth corner's y-coordinate is less than the mouth center, it is "lifted".
+      const leftLift = mouthCenterY - leftCorner[1];
+      const rightLift = mouthCenterY - rightCorner[1];
+      // Average the lift values and normalize by the horizontal mouth width to account for scale differences.
+      const avgNormalizedLift = ((leftLift + rightLift) / 2) / horizontalDist;
+      
+      console.log(`Average Normalized Corner Lift: ${avgNormalizedLift.toFixed(3)}`);
+  
+      // Check if the average normalized lift exceeds the threshold.
+      if (avgNormalizedLift > SMILE_CORNER_LIFT_THRESHOLD) {
+        smileFrameCount++;
+      } else {
+        smileFrameCount = 0;
+      }
+  
+      // If the condition holds for a number of consecutive frames, register a smile.
+      if (smileFrameCount >= REQUIRED_CONSECUTIVE_SMILE_FRAMES) {
+        smileFrameCount = 0;
+        return true;
+      }
+  
+      return false;
+    }
+  
     function detectHeadMovement(keypoints, direction) {
       const noseTipIndex = 1;
       const nose = keypoints[noseTipIndex];
@@ -683,6 +680,7 @@ function detectSmile(keypoints) {
     // ----- Start-up -----
     async function main() {
       await setupFaceLandmarkDetection();
+      // Uncomment the next line if you want to auto-start detection:
       // startWebcamAndCapture();
     }
     main();
