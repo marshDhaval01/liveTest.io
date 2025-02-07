@@ -140,10 +140,9 @@
       text-decoration: none;
       border-radius: 4px;
     }
-    
+
     /* Style for the Start button */
     #startBtn {
-      position: fixed;
       top: 10px;
       right: 10px;
       padding: 10px 15px;
@@ -205,7 +204,7 @@
   </div>
   
   <!-- Instruction text (outside the circle container) -->
-  <div id="instruction-text">Please blink to start.</div>
+  <div id="instruction-text">When you are ready, click the Start button.</div>
   
   <!-- Hidden canvases for internal drawing -->
   <canvas id="bounding-box" width="640" height="480"></canvas>
@@ -683,7 +682,7 @@
     // ----- Start-up -----
     async function main() {
       await setupFaceLandmarkDetection();
-      startWebcamAndCapture();
+      // startWebcamAndCapture();
     }
     main();
   </script>
