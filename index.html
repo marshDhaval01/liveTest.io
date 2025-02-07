@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>X Wallet Liveliness</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-
+  
   <!-- Query Parameter Check -->
   <script>
     (function() {
@@ -12,42 +12,30 @@
       const id = urlParams.get('id');
       // Regular expression for a UUID (v4/v1)
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      
-      // If no valid id, deny access.
       if (!id || !uuidRegex.test(id)) {
         alert("Access denied!");
         window.location.href = "about:blank";
       }
     })();
   </script>
-
+  
   <!-- jQuery -->
-  <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script> 
-
+  <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-
+  
   <!-- TensorFlow.js Dependencies -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@2.6.0/dist/tf-core.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@2.6.0/dist/tf-converter.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@2.6.0/dist/tf-backend-wasm.min.js"></script>
-
+  
   <!-- Face Landmarks Detection Model -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@0.0.2/dist/face-landmarks-detection.min.js"></script>
-
+  
   <!-- Webcam Easy -->
   <script src="https://unpkg.com/webcam-easy/dist/webcam-easy.min.js"></script>
-
-
-  <button id="startBtn">Start</button>
-  <script>
-  document.getElementById('startBtn').addEventListener('click', function() {
-    playTingSound(); // Play sound
-    // Resume AudioContext or call detection here if needed.
-  });
-  </script>
-
-
+  
   <style>
     /* ----- Base Styles ----- */
     body {
@@ -77,7 +65,6 @@
       margin-top: 15px;
       color: #333;
     }
-
     /* ----- Circular UI Styles ----- */
     .circle-container {
       position: relative;
@@ -139,7 +126,6 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
-    
     /* ----- Hidden Elements for Internal Drawing ----- */
     #bounding-box, #facial-landmarks {
       display: none;
@@ -154,18 +140,61 @@
       text-decoration: none;
       border-radius: 4px;
     }
+    
+    /* Style for the Start button */
+    #startBtn {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      padding: 10px 15px;
+      font-size: 16px;
+      z-index: 1000;
+      background-color: #7e57c2;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
   </style>
+  
+  <!-- Global Audio Unlocking -->
+  <script>
+    // Create a global Audio object for the "ting" sound.
+    const tingAudio = new Audio('res/ting.wav');
+    tingAudio.volume = 0.5; // Adjust volume as needed
+    
+    // When the user clicks the Start button, play the sound once to unlock audio.
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('startBtn').addEventListener('click', function() {
+        tingAudio.play().then(() => {
+          console.log("Audio unlocked");
+        }).catch(error => {
+          console.error("Error unlocking audio:", error);
+        });
+        // Optionally, start your detection process here:
+        startWebcamAndCapture();
+        // Hide the Start button after unlocking.
+        this.style.display = 'none';
+      });
+    });
+    
+    // Reusable function to play the unlocked "ting" sound.
+    function playTingSound() {
+      tingAudio.currentTime = 0;
+      tingAudio.play().catch(error => console.error("Error playing sound:", error));
+    }
+  </script>
 </head>
 <body>
-
+  <!-- Start Button for unlocking audio on mobile -->
+  <button id="startBtn">Start</button>
+  
   <!-- Heading -->
   <h1>XWallet Liveliness</h1>
-
-  <!-- Timer (placed just below the title) -->
-  <!-- <div id="timer">Time remaining: 30 seconds</div> -->
-
+  
+  <!-- Instruction Text -->
   <div id="face-guidance">Align your face with the circle and follow instructions.</div>
-
+  
   <!-- Circular UI Container with Video -->
   <div class="circle-container">
     <div class="circle-border"></div>
@@ -174,58 +203,52 @@
     </div>
     <button class="close-button" onclick="stopCapture()">×</button>
   </div>
-
-  <!-- Instruction text (now outside the circle container) -->
+  
+  <!-- Instruction text (outside the circle container) -->
   <div id="instruction-text">Please blink to start.</div>
-
+  
   <!-- Hidden canvases for internal drawing -->
   <canvas id="bounding-box" width="640" height="480"></canvas>
   <canvas id="facial-landmarks" width="640" height="480"></canvas>
+  
   <!-- Hidden download link for the captured snapshot -->
   <a id="download-photo" href="#" download="snapshot.png">Download Snapshot</a>
-
+  
   <script>
-    // ----- Universal Sound Function -----
-    function playTingSound() {
-      // Create an Audio object pointing to your ting sound file.
-      const audio = new Audio('res/ting.wav');
-      audio.play().catch(error => console.error("Error playing sound:", error));
-    }
-
     // ----- Global Variables & Initialization -----
     const webcamElement = document.getElementById('webcam');
     const boundingBoxCanvas = document.getElementById('bounding-box');
     const boundingBoxCtx = boundingBoxCanvas.getContext('2d');
     const landmarksCanvas = document.getElementById('facial-landmarks');
     const landmarksCtx = landmarksCanvas.getContext('2d');
-
+  
     // Using jQuery for timer and instruction texts, and the download link.
     const timerText = $("#timer");
     const facecenterText = $("#facecenter");
     const instructionText = $("#instruction-text");
     const downloadPhotoLink = $("#download-photo");
-
+  
     // Initialize Webcam Easy with the video element.
     let webcam = new Webcam(webcamElement, 'user', landmarksCanvas);
     let model = null;
     let running = false;
     let cameraFrame = null;
     let timeout = null;
-
+  
     // Total time allowed for the liveliness test (in seconds)
     const TOTAL_TIME = 30;
     let remainingTime = TOTAL_TIME;
     let countdownInterval = null;
-
+  
     // Application states:
     // "waitingForBlink" → "waitingForHeadMovements" → "waitingForSmile" → "completed"
     let currentStep = 'waitingForBlink';
-
+  
     // Head movement directions and sequence.
     const headMovements = ['left', 'right', 'up', 'down'];
     let headMovementSequence = [];
     let currentHeadMovementIndex = 0;
-
+  
     // Emoji mapping for instructions.
     const emojiMapping = {
       blink: '👀',
@@ -235,9 +258,9 @@
       up: '⬆️',
       down: '⬇️'
     };
-
+  
     // ----- Functions for Starting & Stopping -----
-
+  
     // Start webcam and then start the detection capture.
     async function startWebcamAndCapture() {
       try {
@@ -249,14 +272,14 @@
         alert("Could not access the webcam. Please allow camera access.");
       }
     }
-
+  
     // Start the capture process: load the face-landmarks model and begin detection.
     async function startCapture() {
       currentStep = 'waitingForBlink';
       headMovementSequence = [];
       currentHeadMovementIndex = 0;
       downloadPhotoLink.hide();
-
+  
       try {
         model = await faceLandmarksDetection.load(
           faceLandmarksDetection.SupportedPackages.mediapipeFacemesh,
@@ -270,7 +293,7 @@
         stopCapture();
       }
     }
-
+  
     // Stop the capture/detection process.
     function stopCapture() {
       if (running) {
@@ -284,33 +307,33 @@
       clearInterval(countdownInterval);
       remainingTime = TOTAL_TIME;
     }
-
+  
     // Stop the webcam (called by the close button).
     function stopWebcam() {
       webcam.stop();
       instructionText.text("Webcam stopped.");
     }
-
+  
     // ----- Detection & Drawing Functions -----
-
+  
     async function detectKeyPoints() {
       if (!running) return;
-
+  
       const predictions = await model.estimateFaces({
         input: webcamElement,
         returnTensors: false,
         flipHorizontal: true,
         predictIrises: false
       });
-
+  
       // Clear previous drawings on hidden canvases.
       boundingBoxCtx.clearRect(0, 0, boundingBoxCanvas.width, boundingBoxCanvas.height);
       landmarksCtx.clearRect(0, 0, landmarksCanvas.width, landmarksCanvas.height);
-
+  
       if (predictions.length > 0) {
         const prediction = predictions[0];
         const keypoints = prediction.scaledMesh;
-
+  
         // Draw bounding box (for debugging, on hidden canvas)
         const start = prediction.boundingBox.topLeft;
         const end = prediction.boundingBox.bottomRight;
@@ -318,23 +341,23 @@
         boundingBoxCtx.strokeStyle = "blue";
         boundingBoxCtx.lineWidth = 2;
         boundingBoxCtx.strokeRect(start[0], start[1], size[0], size[1]);
-
+  
         // Draw facial landmarks on the hidden canvas.
         drawFacialLandmarks(keypoints, currentStep);
-
+  
         // If waiting for head movements, draw the arrow indicator.
         if (currentStep === 'waitingForHeadMovements') {
           const currentDirection = headMovementSequence[currentHeadMovementIndex];
           drawHeadIndicator(currentDirection);
         }
-
+  
         // Process current state.
         switch (currentStep) {
           case 'waitingForBlink':
             if (detectBlink(keypoints)) {
               console.log('Blink detected!');
               playTingSound(); // Play ting sound for blink
-
+  
               // Generate a fixed sequence of 7 random head movements.
               for (let i = 0; i < 7; i++) {
                 headMovementSequence.push(headMovements[Math.floor(Math.random() * headMovements.length)]);
@@ -344,6 +367,7 @@
               instructionText.text(getCurrentInstruction());
             }
             break;
+  
           case 'waitingForHeadMovements': {
               const currentDirection = headMovementSequence[currentHeadMovementIndex];
               if (detectHeadMovement(keypoints, currentDirection)) {
@@ -359,6 +383,7 @@
               }
             }
             break;
+  
           case 'waitingForSmile':
             if (detectSmile(keypoints)) {
               console.log('Smile detected!');
@@ -373,7 +398,7 @@
               webcam.stop();
               webcamElement.style.display = "none";
               console.log("Webcam closed after snapshot capture.");
-
+  
               // Post message to parent window if available.
               if (window.parent) {
                 const urlParams = new URLSearchParams(window.location.search);
@@ -392,16 +417,17 @@
               }
             }
             break;
+  
           default:
             break;
         }
       } else {
         console.log("No face detected.");
       }
-
+  
       cameraFrame = requestAnimationFrame(detectKeyPoints);
     }
-
+  
     function getCurrentInstruction() {
       switch (currentStep) {
         case 'waitingForBlink':
@@ -415,7 +441,7 @@
           return "";
       }
     }
-
+  
     async function setupFaceLandmarkDetection() {
       try {
         await tf.setBackend('wasm');
@@ -426,7 +452,7 @@
         alert("Failed to initialize TensorFlow.js backend.");
       }
     }
-
+  
     function drawHeadIndicator(direction) {
       landmarksCtx.save();
       landmarksCtx.strokeStyle = "yellow";
@@ -499,7 +525,7 @@
       landmarksCtx.stroke();
       landmarksCtx.restore();
     }
-
+  
     let blinkFrameCount = 0;
     function detectBlink(keypoints) {
       const leftEyeIndices = { top: 386, bottom: 374, left: 263, right: 362 };
@@ -520,47 +546,40 @@
       }
       return false;
     }
-
-  // Global variable to track consecutive frames with a detected smile
-let smileFrameCount = 0;
-// Number of consecutive frames required to confirm a smile
-const REQUIRED_CONSECUTIVE_SMILE_FRAMES = 3;
-
-function detectSmile(keypoints) {
-  const mouth = { left: 61, right: 291, top: 13, bottom: 14 };
   
-  const horizontalDist = euclideanDistance(
-    keypoints[mouth.left][0], keypoints[mouth.left][1],
-    keypoints[mouth.right][0], keypoints[mouth.right][1]
-  );
-  const verticalDist = euclideanDistance(
-    keypoints[mouth.top][0], keypoints[mouth.top][1],
-    keypoints[mouth.bottom][0], keypoints[mouth.bottom][1]
-  );
+    // Global variable to track consecutive frames with a detected smile
+    let smileFrameCount = 0;
+    // Number of consecutive frames required to confirm a smile
+    const REQUIRED_CONSECUTIVE_SMILE_FRAMES = 3;
   
-  const mar = verticalDist / horizontalDist;
-  console.log(`Mouth Aspect Ratio (MAR): ${mar.toFixed(3)}`);
+    function detectSmile(keypoints) {
+      const mouth = { left: 61, right: 291, top: 13, bottom: 14 };
+      const horizontalDist = euclideanDistance(
+        keypoints[mouth.left][0], keypoints[mouth.left][1],
+        keypoints[mouth.right][0], keypoints[mouth.right][1]
+      );
+      const verticalDist = euclideanDistance(
+        keypoints[mouth.top][0], keypoints[mouth.top][1],
+        keypoints[mouth.bottom][0], keypoints[mouth.bottom][1]
+      );
+      const mar = verticalDist / horizontalDist;
+      console.log(`Mouth Aspect Ratio (MAR): ${mar.toFixed(3)}`);
+      const MAR_THRESHOLD = 0.067;
   
-  const MAR_THRESHOLD = 0.067;
+      if (mar > MAR_THRESHOLD) {
+        smileFrameCount++;
+      } else {
+        smileFrameCount = 0;
+      }
   
-  // If the MAR is above the threshold, count this frame as a smile
-  if (mar > MAR_THRESHOLD) {
-    smileFrameCount++;
-  } else {
-    // Reset the counter if the condition is not met
-    smileFrameCount = 0;
-  }
+      if (smileFrameCount >= REQUIRED_CONSECUTIVE_SMILE_FRAMES) {
+        smileFrameCount = 0;
+        return true;
+      }
   
-  // Confirm a smile only if we've seen it for the required consecutive frames
-  if (smileFrameCount >= REQUIRED_CONSECUTIVE_SMILE_FRAMES) {
-    smileFrameCount = 0; // Reset for the next detection cycle
-    return true;
-  }
+      return false;
+    }
   
-  return false;
-}
-
-
     function detectHeadMovement(keypoints, direction) {
       const noseTipIndex = 1;
       const nose = keypoints[noseTipIndex];
@@ -607,7 +626,7 @@ function detectSmile(keypoints) {
       console.log(`Nose: (${noseX.toFixed(1)}, ${noseY.toFixed(1)}) | Target: ${direction} | Moved: ${moved}`);
       return moved;
     }
-
+  
     function drawFacialLandmarks(keypoints, step) {
       landmarksCtx.lineWidth = 2;
       landmarksCtx.strokeStyle = "white";
@@ -644,7 +663,7 @@ function detectSmile(keypoints) {
         drawLines(mouth.outer);
       }
     }
-
+  
     function calculateEAR(keypoints, eyeIndices) {
       const a = euclideanDistance(
         keypoints[eyeIndices.top][0], keypoints[eyeIndices.top][1],
@@ -656,11 +675,11 @@ function detectSmile(keypoints) {
       );
       return a / (2.0 * b);
     }
-
+  
     function euclideanDistance(x1, y1, x2, y2) {
       return Math.sqrt(Math.pow((x1 - x2), 2) + Math.pow((y1 - y2), 2));
     }
-
+  
     // ----- Start-up -----
     async function main() {
       await setupFaceLandmarkDetection();
