@@ -151,8 +151,6 @@
   <!-- Heading -->
   <h1>XWallet Liveliness</h1>
 
-
-
   <!-- Timer (placed just below the title) -->
   <!-- <div id="timer">Time remaining: 30 seconds</div> -->
 
@@ -177,6 +175,13 @@
   <a id="download-photo" href="#" download="snapshot.png">Download Snapshot</a>
 
   <script>
+    // ----- Universal Sound Function -----
+    function playTingSound() {
+      // Create an Audio object pointing to your ting sound file.
+      const audio = new Audio('res/ting.wav');
+      audio.play().catch(error => console.error("Error playing sound:", error));
+    }
+
     // ----- Global Variables & Initialization -----
     const webcamElement = document.getElementById('webcam');
     const boundingBoxCanvas = document.getElementById('bounding-box');
@@ -242,8 +247,6 @@
       currentHeadMovementIndex = 0;
       downloadPhotoLink.hide();
 
-
-
       try {
         model = await faceLandmarksDetection.load(
           faceLandmarksDetection.SupportedPackages.mediapipeFacemesh,
@@ -251,11 +254,6 @@
         );
         running = true;
         cameraFrame = requestAnimationFrame(detectKeyPoints);
-        // timeout = setTimeout(() => {
-        //   alert("Capture timed out. Please try again.");
-        //   stopCapture();
-        //   webcam.stop();
-        // }, TOTAL_TIME * 1000);
       } catch (err) {
         console.error("Error loading the model:", err);
         alert("Failed to load the face detection model.");
@@ -325,43 +323,26 @@
           case 'waitingForBlink':
             if (detectBlink(keypoints)) {
               console.log('Blink detected!');
-              // Generate a fixed sequence of 5 random head movements.
+              playTingSound(); // Play ting sound for blink
+
+              // Generate a fixed sequence of 7 random head movements.
               for (let i = 0; i < 7; i++) {
                 headMovementSequence.push(headMovements[Math.floor(Math.random() * headMovements.length)]);
               }
               console.log("Head Movement Sequence:", headMovementSequence);
               currentStep = 'waitingForHeadMovements';
               instructionText.text(getCurrentInstruction());
-
-
-              // Start a countdown timer.
-              // remainingTime = TOTAL_TIME;
-              // timerText.text(`Time remaining: ${remainingTime} seconds`);
-              // instructionText.text(getCurrentInstruction());
-              // countdownInterval = setInterval(() => {
-              //   remainingTime--;
-              //   timerText.text(`Time remaining: ${remainingTime} seconds`);
-              //   instructionText.text(getCurrentInstruction());
-              //   if (remainingTime <= 0) {
-              //     clearInterval(countdownInterval);
-              //     alert("Capture timed out. Please try again.");
-              //     stopCapture();
-              //     webcam.stop();
-              //   }
-              // }, 1000);
             }
             break;
-          case 'waitingForHeadMovements':
-            {
+          case 'waitingForHeadMovements': {
               const currentDirection = headMovementSequence[currentHeadMovementIndex];
               if (detectHeadMovement(keypoints, currentDirection)) {
                 console.log(`Head movement (${currentDirection}) detected!`);
+                playTingSound(); // Play ting sound for head movement
                 currentHeadMovementIndex++;
                 if (currentHeadMovementIndex < headMovementSequence.length) {
-                  // timerText.text(`Time remaining: ${remainingTime} seconds`);
                   instructionText.text(`Good! Next, please move your head ${headMovementSequence[currentHeadMovementIndex]} ${emojiMapping[headMovementSequence[currentHeadMovementIndex]]}`);
                 } else {
-                  // timerText.text(`Time remaining: ${remainingTime} seconds`);
                   instructionText.text(`All head movements detected! Now, please smile ${emojiMapping.smile}`);
                   currentStep = 'waitingForSmile';
                 }
@@ -371,11 +352,8 @@
           case 'waitingForSmile':
             if (detectSmile(keypoints)) {
               console.log('Smile detected!');
-              // timerText.text(''); // Clear timer once complete
-              facecenterText.text(''); // Clear face center text once complete
+              playTingSound(); // Play ting sound for smile
               instructionText.text('Smile detected! Capture completed.');
-              // clearTimeout(timeout);
-              // clearInterval(countdownInterval);
               stopCapture();
               let picture = webcam.snap();
               downloadPhotoLink.attr('href', picture);
@@ -398,7 +376,6 @@
                   if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
                     window.ReactNativeWebView.postMessage(JSON.stringify(payload));
                   } else if (window.parent && typeof window.parent.postMessage === 'function') {
-                    // Replace the target origin with your production URL.
                     window.parent.postMessage(payload, "https://xwallet.tradetcx.com/kyc");
                   }
                 }
@@ -534,21 +511,45 @@
       return false;
     }
 
-    function detectSmile(keypoints) {
-      const mouth = { left: 61, right: 291, top: 13, bottom: 14 };
-      const horizontalDist = euclideanDistance(
-        keypoints[mouth.left][0], keypoints[mouth.left][1],
-        keypoints[mouth.right][0], keypoints[mouth.right][1]
-      );
-      const verticalDist = euclideanDistance(
-        keypoints[mouth.top][0], keypoints[mouth.top][1],
-        keypoints[mouth.bottom][0], keypoints[mouth.bottom][1]
-      );
-      const mar = verticalDist / horizontalDist;
-      console.log(`Mouth Aspect Ratio (MAR): ${mar.toFixed(3)}`);
-      const MAR_THRESHOLD = 0.067;
-      return mar > MAR_THRESHOLD;
-    }
+  // Global variable to track consecutive frames with a detected smile
+let smileFrameCount = 0;
+// Number of consecutive frames required to confirm a smile
+const REQUIRED_CONSECUTIVE_SMILE_FRAMES = 3;
+
+function detectSmile(keypoints) {
+  const mouth = { left: 61, right: 291, top: 13, bottom: 14 };
+  
+  const horizontalDist = euclideanDistance(
+    keypoints[mouth.left][0], keypoints[mouth.left][1],
+    keypoints[mouth.right][0], keypoints[mouth.right][1]
+  );
+  const verticalDist = euclideanDistance(
+    keypoints[mouth.top][0], keypoints[mouth.top][1],
+    keypoints[mouth.bottom][0], keypoints[mouth.bottom][1]
+  );
+  
+  const mar = verticalDist / horizontalDist;
+  console.log(`Mouth Aspect Ratio (MAR): ${mar.toFixed(3)}`);
+  
+  const MAR_THRESHOLD = 0.067;
+  
+  // If the MAR is above the threshold, count this frame as a smile
+  if (mar > MAR_THRESHOLD) {
+    smileFrameCount++;
+  } else {
+    // Reset the counter if the condition is not met
+    smileFrameCount = 0;
+  }
+  
+  // Confirm a smile only if we've seen it for the required consecutive frames
+  if (smileFrameCount >= REQUIRED_CONSECUTIVE_SMILE_FRAMES) {
+    smileFrameCount = 0; // Reset for the next detection cycle
+    return true;
+  }
+  
+  return false;
+}
+
 
     function detectHeadMovement(keypoints, direction) {
       const noseTipIndex = 1;
