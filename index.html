@@ -221,7 +221,7 @@
     const landmarksCanvas = document.getElementById('facial-landmarks');
     const landmarksCtx = landmarksCanvas.getContext('2d');
   
-    // Using jQuery for timer and instruction texts, and the download link.
+    // Using jQuery for instruction texts and the download link.
     const instructionText = $("#instruction-text");
     const downloadPhotoLink = $("#download-photo");
   
@@ -230,11 +230,6 @@
     let model = null;
     let running = false;
     let cameraFrame = null;
-  
-    // Total time allowed for the liveliness test (in seconds)
-    const TOTAL_TIME = 30;
-    let remainingTime = TOTAL_TIME;
-    let countdownInterval = null;
   
     // Application states:
     // "waitingForBlink" → "waitingForHeadMovements" → "waitingForCenter" → "waitingForSmile" → "completed"
@@ -300,8 +295,6 @@
         boundingBoxCtx.clearRect(0, 0, boundingBoxCanvas.width, boundingBoxCanvas.height);
         landmarksCtx.clearRect(0, 0, landmarksCanvas.width, landmarksCanvas.height);
       }
-      clearInterval(countdownInterval);
-      remainingTime = TOTAL_TIME;
     }
   
     // Stop the webcam (called by the close button).
@@ -405,23 +398,6 @@
               webcam.stop();
               webcamElement.style.display = "none";
               console.log("Webcam closed after snapshot capture.");
-  
-              // Post message to parent window if available.
-              if (window.parent) {
-                const urlParams = new URLSearchParams(window.location.search);
-                const id = urlParams.get('id');
-                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                if (!id || !uuidRegex.test(id)) {
-                  alert("Access denied!");
-                } else {
-                  const payload = { snapshot: picture, id: id };
-                  if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
-                    window.ReactNativeWebView.postMessage(JSON.stringify(payload));
-                  } else if (window.parent && typeof window.parent.postMessage === 'function') {
-                    window.parent.postMessage(payload, "https://xwallet.tradetcx.com/kyc");
-                  }
-                }
-              }
             }
             break;
   
@@ -460,6 +436,61 @@
         console.error("Error setting up TensorFlow.js backend:", err);
         alert("Failed to initialize TensorFlow.js backend.");
       }
+    }
+  
+    // Updated detectHeadMovement using video dimensions and relative thresholds.
+    function detectHeadMovement(keypoints, direction) {
+      const noseTipIndex = 1;
+      const nose = keypoints[noseTipIndex];
+      const noseX = nose[0];
+      const noseY = nose[1];
+      
+      // Use actual video dimensions if available; fallback to canvas dimensions.
+      const videoWidth = webcamElement.videoWidth || boundingBoxCanvas.width;
+      const videoHeight = webcamElement.videoHeight || boundingBoxCanvas.height;
+      const frameCenterX = videoWidth / 2;
+      const frameCenterY = videoHeight / 2;
+      
+      // Use thresholds as a percentage of the video dimensions.
+      const THRESHOLD_X = videoWidth * 0.05; // 5% of width
+      const THRESHOLD_Y = videoHeight * 0.05; // 5% of height
+  
+      let moved = false;
+      switch(direction) {
+        case 'left':
+          if (noseX < frameCenterX - THRESHOLD_X) moved = true;
+          break;
+        case 'right':
+          if (noseX > frameCenterX + THRESHOLD_X) moved = true;
+          break;
+        case 'up':
+          if (noseY < frameCenterY - THRESHOLD_Y) moved = true;
+          break;
+        case 'down':
+          if (noseY > frameCenterY + THRESHOLD_Y) moved = true;
+          break;
+        case 'up-left':
+          if (noseX < frameCenterX - THRESHOLD_X && noseY < frameCenterY - THRESHOLD_Y) moved = true;
+          break;
+        case 'up-right':
+          if (noseX > frameCenterX + THRESHOLD_X && noseY < frameCenterY - THRESHOLD_Y) moved = true;
+          break;
+        case 'down-left':
+          if (noseX < frameCenterX - THRESHOLD_X && noseY > frameCenterY + THRESHOLD_Y) moved = true;
+          break;
+        case 'down-right':
+          if (noseX > frameCenterX + THRESHOLD_X && noseY > frameCenterY + THRESHOLD_Y) moved = true;
+          break;
+        case 'center':
+          if (Math.abs(noseX - frameCenterX) < THRESHOLD_X && Math.abs(noseY - frameCenterY) < THRESHOLD_Y) {
+            moved = true;
+          }
+          break;
+        default:
+          break;
+      }
+      console.log(`Nose: (${noseX.toFixed(1)}, ${noseY.toFixed(1)}) | Frame Center: (${frameCenterX.toFixed(1)}, ${frameCenterY.toFixed(1)}) | THRESHOLD: (${THRESHOLD_X.toFixed(1)}, ${THRESHOLD_Y.toFixed(1)}) | Target: ${direction} | Moved: ${moved}`);
+      return moved;
     }
   
     function drawHeadIndicator(direction) {
@@ -538,9 +569,9 @@
     function detectSmile(keypoints) {
       // Define the landmark indices (assuming a face mesh model)
       const leftCorner = keypoints[61];   // left mouth corner
-      const rightCorner = keypoints[291]; // right mouth corner
-      const topLip = keypoints[13];       // upper lip (approximate)
-      const bottomLip = keypoints[14];    // lower lip (approximate)
+      const rightCorner = keypoints[291];   // right mouth corner
+      const topLip = keypoints[13];         // upper lip (approximate)
+      const bottomLip = keypoints[14];      // lower lip (approximate)
   
       // Calculate the mouth center as the midpoint between the top and bottom lip
       const mouthCenterX = (topLip[0] + bottomLip[0]) / 2;
@@ -556,72 +587,23 @@
       // So, if a mouth corner's y-coordinate is less than the mouth center, it is "lifted".
       const leftLift = mouthCenterY - leftCorner[1];
       const rightLift = mouthCenterY - rightCorner[1];
-      // Average the lift values and normalize by the horizontal mouth width to account for scale differences.
+      // Average the lift values and normalize by the horizontal mouth width.
       const avgNormalizedLift = ((leftLift + rightLift) / 2) / horizontalDist;
       
       console.log(`Average Normalized Corner Lift: ${avgNormalizedLift.toFixed(3)}`);
   
-      // Check if the average normalized lift exceeds the threshold.
       if (avgNormalizedLift > SMILE_CORNER_LIFT_THRESHOLD) {
         smileFrameCount++;
       } else {
         smileFrameCount = 0;
       }
   
-      // If the condition holds for a number of consecutive frames, register a smile.
       if (smileFrameCount >= REQUIRED_CONSECUTIVE_SMILE_FRAMES) {
         smileFrameCount = 0;
         return true;
       }
   
       return false;
-    }
-  
-    function detectHeadMovement(keypoints, direction) {
-      const noseTipIndex = 1;
-      const nose = keypoints[noseTipIndex];
-      const noseX = nose[0];
-      const noseY = nose[1];
-      const frameCenterX = boundingBoxCanvas.width / 2;
-      const frameCenterY = boundingBoxCanvas.height / 2;
-      const THRESHOLD_X = 30;
-      const THRESHOLD_Y = 20;
-      let moved = false;
-      switch(direction) {
-        case 'left':
-          if (noseX < frameCenterX - THRESHOLD_X) moved = true;
-          break;
-        case 'right':
-          if (noseX > frameCenterX + THRESHOLD_X) moved = true;
-          break;
-        case 'up':
-          if (noseY < frameCenterY - THRESHOLD_Y) moved = true;
-          break;
-        case 'down':
-          if (noseY > frameCenterY + THRESHOLD_Y) moved = true;
-          break;
-        case 'up-left':
-          if (noseX < frameCenterX - THRESHOLD_X && noseY < frameCenterY - THRESHOLD_Y) moved = true;
-          break;
-        case 'up-right':
-          if (noseX > frameCenterX + THRESHOLD_X && noseY < frameCenterY - THRESHOLD_Y) moved = true;
-          break;
-        case 'down-left':
-          if (noseX < frameCenterX - THRESHOLD_X && noseY > frameCenterY + THRESHOLD_Y) moved = true;
-          break;
-        case 'down-right':
-          if (noseX > frameCenterX + THRESHOLD_X && noseY > frameCenterY + THRESHOLD_Y) moved = true;
-          break;
-        case 'center':
-          if (Math.abs(noseX - frameCenterX) < THRESHOLD_X && Math.abs(noseY - frameCenterY) < THRESHOLD_Y) {
-            moved = true;
-          }
-          break;
-        default:
-          break;
-      }
-      console.log(`Nose: (${noseX.toFixed(1)}, ${noseY.toFixed(1)}) | Target: ${direction} | Moved: ${moved}`);
-      return moved;
     }
   
     function drawFacialLandmarks(keypoints, step) {
@@ -680,7 +662,7 @@
     // ----- Start-up -----
     async function main() {
       await setupFaceLandmarkDetection();
-      // Uncomment the next line if you want to auto-start detection:
+      // Uncomment the next line to auto-start detection:
       // startWebcamAndCapture();
     }
     main();
