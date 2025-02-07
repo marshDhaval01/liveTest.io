@@ -393,7 +393,7 @@
             if (detectHeadMovement(keypoints, 'center')) {
               console.log("Face is centered!");
               playTingSound();
-              instructionText.text(`Face centered! Now, please smile ${emojiMapping.smile}`);
+              instructionText.text(`Now, please smile ${emojiMapping.smile}`);
               currentStep = 'waitingForSmile';
             }
             break;
