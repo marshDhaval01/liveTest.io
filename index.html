@@ -393,11 +393,12 @@
               console.log('Smile detected!');
               playTingSound();
               instructionText.text('Smile detected! Capture completed.');
-              stopCapture();
+              
               let picture = webcam.snap();
               downloadPhotoLink.attr('href', picture);
               downloadPhotoLink.show();
               instructionText.text('Capture completed! You can download your snapshot.');
+              stopCapture();
               currentStep = 'completed';
               webcam.stop();
               webcamElement.style.display = "none";
